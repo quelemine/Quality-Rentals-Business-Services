@@ -97,15 +97,23 @@ export const QuoteProvider = ({ children }) => {
     try {
       console.log('=== Quote Submission Debug ===');
       // Calculate estimated total
-      let estimatedTotal = 0;
+      let estimatedTotalUSD = 0;
       let hasContactForPrice = false;
+      const USD_TO_LRD_RATE = 200;
 
       quoteItems.forEach((item) => {
         const price = item.product_details.price;
+        const priceCurrency = item.product_details.price_currency || 'USD';
+        
         if (price && typeof price === 'string' && !price.toLowerCase().includes('contact')) {
           const numericPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
           if (!isNaN(numericPrice)) {
-            estimatedTotal += numericPrice * item.quantity;
+            // Convert to USD if price is in LRD
+            let priceInUSD = numericPrice;
+            if (priceCurrency === 'LRD') {
+              priceInUSD = numericPrice / USD_TO_LRD_RATE;
+            }
+            estimatedTotalUSD += priceInUSD * item.quantity;
           }
         } else if (!price || (typeof price === 'string' && price.toLowerCase().includes('contact'))) {
           hasContactForPrice = true;
@@ -123,7 +131,7 @@ export const QuoteProvider = ({ children }) => {
         delivery_address: formData.deliveryType === 'Delivery Required' ? formData.deliveryAddress : null,
         special_notes: formData.specialNotes,
         contact_method: formData.contactMethod,
-        estimated_total: hasContactForPrice ? null : estimatedTotal,
+        estimated_total: hasContactForPrice ? null : estimatedTotalUSD,
         items: quoteItems.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,

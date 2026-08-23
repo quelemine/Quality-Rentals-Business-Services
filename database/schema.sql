@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     image_url LONGTEXT NOT NULL,
     price VARCHAR(50) NOT NULL,
+    price_currency VARCHAR(3) DEFAULT 'USD',
     is_available BOOLEAN DEFAULT true,
     stock_quantity INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
