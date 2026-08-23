@@ -41,6 +41,16 @@ const AdminPanel = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changePasswordMessage, setChangePasswordMessage] = useState('');
+  const [isSubmittingChangePassword, setIsSubmittingChangePassword] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [modal, setModal] = useState({ open: false, type: null, mode: 'create', item: null });
@@ -138,6 +148,84 @@ const AdminPanel = () => {
       const url = new URL(window.location.href);
       url.searchParams.delete('admin');
       window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setIsSubmittingForgot(true);
+    setForgotMessage('');
+
+    try {
+      const response = await fetch('http://localhost/qualityrentalservices/api/auth/forgot-password.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setForgotMessage(data.message);
+        setForgotEmail('');
+      } else {
+        setForgotMessage(data.message || 'Failed to send reset link');
+      }
+    } catch (error) {
+      setForgotMessage('Network error. Please try again.');
+    } finally {
+      setIsSubmittingForgot(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setChangePasswordMessage('');
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordMessage('New passwords do not match.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setChangePasswordMessage('New password must be at least 8 characters long.');
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setChangePasswordMessage('New password must be different from current password.');
+      return;
+    }
+
+    setIsSubmittingChangePassword(true);
+
+    try {
+      const response = await fetch('http://localhost/qualityrentalservices/api/auth/change-password.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'admin@qualityrentalservices.com', // This should come from session
+          currentPassword,
+          newPassword,
+          confirmPassword: confirmNewPassword
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setChangePasswordMessage(data.message);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setTimeout(() => setShowChangePassword(false), 2000);
+      } else {
+        setChangePasswordMessage(data.message || 'Failed to change password.');
+      }
+    } catch (error) {
+      setChangePasswordMessage('Network error. Please try again.');
+    } finally {
+      setIsSubmittingChangePassword(false);
     }
   };
 
@@ -1232,7 +1320,56 @@ const AdminPanel = () => {
                 Login
               </div>
             </button>
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="w-full text-sm text-gold hover:underline"
+            >
+              Forgot Password?
+            </button>
           </form>
+
+          {showForgotPassword && (
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <h4 className="text-lg font-semibold text-navy mb-4">Reset Password</h4>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Email Address</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                    required
+                  />
+                </div>
+                {forgotMessage && (
+                  <p className={`text-sm ${forgotMessage.includes('sent') ? 'text-green-600' : 'text-red-600'}`}>
+                    {forgotMessage}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSubmittingForgot}
+                  className="w-full rounded-lg bg-navy px-4 py-2.5 text-sm font-medium text-white hover:bg-gold transition-colors disabled:opacity-50"
+                >
+                  {isSubmittingForgot ? 'Sending...' : 'Send Reset Link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setForgotEmail('');
+                    setForgotMessage('');
+                  }}
+                  className="w-full text-sm text-slate-600 hover:text-slate-800"
+                >
+                  Back to Login
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1423,6 +1560,93 @@ const AdminPanel = () => {
         </div>
       )}
 
+      {showChangePassword && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-gold">Security</p>
+                <h3 className="mt-1 text-2xl font-bold text-navy">Change Password</h3>
+              </div>
+              <button type="button" onClick={() => {
+                setShowChangePassword(false);
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+                setChangePasswordMessage('');
+              }} className="rounded-full p-2 hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Current Password</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                  required
+                  minLength={8}
+                />
+                <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {changePasswordMessage && (
+                <p className={`text-sm ${changePasswordMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+                  {changePasswordMessage}
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowChangePassword(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                    setChangePasswordMessage('');
+                  }}
+                  className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingChangePassword}
+                  className="flex-1 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-white hover:bg-navy transition-colors disabled:opacity-50"
+                >
+                  {isSubmittingChangePassword ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-0 backdrop-blur-sm">
         <div
           className="mx-auto flex min-h-screen max-w-7xl min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-white shadow-2xl md:h-full md:min-h-0 md:flex-row md:rounded-none"
@@ -1454,12 +1678,20 @@ const AdminPanel = () => {
             ))}
           </nav>
 
-          <div className="border-t border-slate-700 p-4">
+          <div className="border-t border-slate-700 p-4 space-y-2">
+            <button 
+              type="button" 
+              onClick={() => setShowChangePassword(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              <Shield className="h-4 w-4" />
+              Change Password
+            </button>
             <button type="button" onClick={() => {
               if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
                 resetWebsiteContent();
               }
-            }} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            }} className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
               <RefreshCw className="h-4 w-4" />
               Reset Content
             </button>
