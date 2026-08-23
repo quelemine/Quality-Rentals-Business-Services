@@ -26,18 +26,33 @@ const QuoteDrawer = () => {
     let total = 0;
     let hasContactForPrice = false;
 
+    console.log('=== Price Calculation Debug ===');
+    console.log('Quote Items:', quoteItems);
+
     quoteItems.forEach((item) => {
       const price = item.product_details.price;
+      console.log('Item:', item.product_details.name);
+      console.log('Raw Price:', price);
+      console.log('Price Type:', typeof price);
+      
       if (price && typeof price === 'string' && !price.toLowerCase().includes('contact')) {
         // Try to extract numeric value from price string (e.g., "$50/day" -> 50)
         const numericPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
+        console.log('Numeric Price:', numericPrice);
+        console.log('Quantity:', item.quantity);
+        
         if (!isNaN(numericPrice)) {
           total += numericPrice * item.quantity;
+          console.log('Added to total:', numericPrice * item.quantity);
         }
       } else if (!price || (typeof price === 'string' && price.toLowerCase().includes('contact'))) {
         hasContactForPrice = true;
+        console.log('Contact for price item detected');
       }
     });
+
+    console.log('Final Total:', total);
+    console.log('Has Contact For Price:', hasContactForPrice);
 
     return { total, hasContactForPrice };
   };
@@ -141,6 +156,11 @@ const QuoteDrawer = () => {
                 <span className="text-gray-600">
                   {quoteItems.length} {quoteItems.length === 1 ? 'item' : 'items'} selected
                 </span>
+                {quoteItems.length > 0 && (
+                  <span className="text-navy font-bold">
+                    ${total.toFixed(2)}
+                  </span>
+                )}
               </div>
 
               {quoteItems.length === 0 ? (
