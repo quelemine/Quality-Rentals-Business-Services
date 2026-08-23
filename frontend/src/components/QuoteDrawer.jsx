@@ -59,6 +59,13 @@ const QuoteDrawer = () => {
 
   const { total, hasContactForPrice } = calculateTotalPrice();
 
+  // Currency conversion: USD to LRD (Liberian Dollar)
+  // Exchange rate: 1 USD = 200 LRD (approximate, can be updated)
+  const USD_TO_LRD_RATE = 200;
+  const convertToLRD = (usdAmount) => {
+    return usdAmount * USD_TO_LRD_RATE;
+  };
+
   const handleDateChange = (e) => {
     const selectedDate = new Date(e.target.value);
     const today = new Date();
@@ -157,9 +164,14 @@ const QuoteDrawer = () => {
                   {quoteItems.length} {quoteItems.length === 1 ? 'item' : 'items'} selected
                 </span>
                 {quoteItems.length > 0 && (
-                  <span className="text-navy font-bold">
-                    ${total.toFixed(2)}
-                  </span>
+                  <div className="text-right">
+                    <span className="text-navy font-bold">
+                      ${total.toFixed(2)}
+                    </span>
+                    <span className="text-gray-500 text-sm ml-1">
+                      (LRD {convertToLRD(total).toFixed(2)})
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -230,7 +242,12 @@ const QuoteDrawer = () => {
                       {hasContactForPrice ? (
                         <span className="text-gold font-medium">Contact for pricing</span>
                       ) : (
-                        <span className="text-navy font-bold text-lg">${total.toFixed(2)}</span>
+                        <div>
+                          <span className="text-navy font-bold text-lg">${total.toFixed(2)}</span>
+                          <span className="text-gray-500 text-sm ml-1">
+                            (LRD {convertToLRD(total).toFixed(2)})
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
