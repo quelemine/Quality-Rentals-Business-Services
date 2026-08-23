@@ -1962,6 +1962,72 @@ const AdminPanel = () => {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
+        {/* Mobile Navigation Overlay */}
+        {mobileNavOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+
+        {/* Mobile Navigation Drawer */}
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 flex-col border-r border-slate-200 bg-slate-950 text-white transform transition-transform duration-300 ease-in-out md:hidden ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="border-b border-slate-700 p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-gold">Control</p>
+              <h3 className="mt-2 text-xl font-bold">Admin Panel</h3>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setMobileNavOpen(false)}
+              className="rounded-full p-2 hover:bg-slate-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <nav className="admin-scroll flex-1 space-y-2 overflow-y-auto p-4">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(id);
+                  setMobileNavOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+                  activeTab === id ? 'bg-gold text-slate-900' : 'text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="border-t border-slate-700 p-4 space-y-2">
+            <button 
+              type="button" 
+              onClick={() => {
+                setShowChangePassword(true);
+                setMobileNavOpen(false);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              <Shield className="h-4 w-4" />
+              Change Password
+            </button>
+            <button type="button" onClick={() => {
+              handleLogout();
+              setMobileNavOpen(false);
+            }} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">
+              <LogIn className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
+        </aside>
+
+        {/* Desktop Sidebar */}
         <aside className="hidden w-72 flex-col border-r border-slate-200 bg-slate-950 text-white md:flex">
           <div className="border-b border-slate-700 p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-gold">Control</p>
@@ -2023,86 +2089,42 @@ const AdminPanel = () => {
               </div>
             </div>
 
-            <div className="hidden items-center gap-2 md:flex">
-              <button type="button" onClick={() => {
-                if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
-                  resetWebsiteContent();
-                }
-              }} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
-                <RefreshCw className="h-4 w-4" />
-                Reset
-              </button>
-              <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
-                <Shield className="h-4 w-4" />
-                Logout
-              </button>
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveAndClose}
-                className="flex items-center gap-2 bg-gold text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-white hover:text-slate-900 transition-colors"
+                className="flex items-center gap-2 bg-gold text-slate-900 px-3 py-2 rounded-lg font-medium hover:bg-white hover:text-slate-900 transition-colors md:px-4"
               >
                 <Save className="h-4 w-4" />
-                Save & Close
+                <span className="hidden md:inline">Save & Close</span>
+                <span className="md:hidden">Save</span>
               </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('quality-rental-site-content-v1');
-                  window.location.reload();
-                }}
-                className="flex items-center gap-2 bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
-              >
-                Clear Cache
-              </button>
+              <div className="hidden items-center gap-2 md:flex">
+                <button type="button" onClick={() => {
+                  if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
+                    resetWebsiteContent();
+                  }
+                }} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
+                  <RefreshCw className="h-4 w-4" />
+                  Reset
+                </button>
+                <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                  <Shield className="h-4 w-4" />
+                  Logout
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('quality-rental-site-content-v1');
+                    window.location.reload();
+                  }}
+                  className="flex items-center gap-2 bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                >
+                  Clear Cache
+                </button>
+              </div>
             </div>
           </header>
 
-          {mobileNavOpen && (
-            <div className="border-b border-slate-200 bg-slate-900 p-3 md:hidden">
-              <div className="admin-scroll flex snap-x gap-2 overflow-x-auto pb-1">
-                {tabs.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(id);
-                      setMobileNavOpen(false);
-                    }}
-                    className={`snap-start shrink-0 rounded-xl px-3 py-2 text-left text-sm ${
-                      activeTab === id ? 'bg-gold text-slate-900' : 'bg-slate-800 text-white'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 whitespace-nowrap">
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!mobileNavOpen && (
-            <div className="border-b border-slate-200 bg-slate-100 p-2 md:hidden">
-              <div className="admin-scroll flex snap-x gap-2 overflow-x-auto pb-1">
-                {tabs.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setActiveTab(id)}
-                    className={`snap-start shrink-0 rounded-xl px-3 py-2 text-[11px] font-medium ${
-                      activeTab === id ? 'bg-gold text-slate-900' : 'bg-white text-slate-700 shadow-sm'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1 whitespace-nowrap">
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 md:p-6">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
             {renderContent()}
           </div>
         </main>
