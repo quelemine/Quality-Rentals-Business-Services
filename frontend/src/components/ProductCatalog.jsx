@@ -10,6 +10,7 @@ const ProductCatalog = () => {
   const [apiCategories, setApiCategories] = useState([]);
   const [apiProducts, setApiProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,9 +52,25 @@ const ProductCatalog = () => {
   const products = apiProducts.length > 0 ? apiProducts : siteContent.catalog?.products || [];
 
   const visibleProducts = useMemo(() => {
-    if (activeCategory === null) return products;
-    return products.filter((product) => product.category_id === activeCategory);
-  }, [activeCategory, products]);
+    let filtered = products;
+    
+    // Filter by category
+    if (activeCategory !== null) {
+      filtered = filtered.filter((product) => product.category_id === activeCategory);
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((product) => 
+        product.name?.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query) ||
+        product.price?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [activeCategory, products, searchQuery]);
 
   const getCategoryIcon = (iconName) => {
     const icons = {
@@ -85,6 +102,16 @@ const ProductCatalog = () => {
         <div className="text-center mb-12">
           <span className="text-gold font-medium text-sm tracking-wider uppercase">{siteContent.catalog?.badge || 'What We Rent'}</span>
           <h2 className="text-3xl lg:text-4xl font-serif font-bold text-navy mt-2">{siteContent.catalog?.title || 'Everything You Need for a Successful Event'}</h2>
+        </div>
+
+        <div className="mb-8">
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
+          />
         </div>
 
         <div className="flex overflow-x-auto space-x-2 mb-12 pb-4 scrollbar-hide">

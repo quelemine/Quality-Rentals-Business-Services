@@ -37,23 +37,71 @@ const AIChat = () => {
     let deviceType = 'Desktop';
     let deviceOS = 'Unknown';
     let browser = 'Unknown';
+    let browserVersion = 'Unknown';
+    let screenResolution = `${window.screen.width}x${window.screen.height}`;
+    let viewportSize = `${window.innerWidth}x${window.innerHeight}`;
+    let language = navigator.language || 'Unknown';
+    let platform = navigator.platform || 'Unknown';
 
-    if (/Mobile|Android|iPhone|iPad/i.test(userAgent)) {
+    // Detect device type
+    if (/Mobile|Android|iPhone|iPad|iPod/i.test(userAgent)) {
       deviceType = 'Mobile';
+    } else if (/Tablet|iPad/i.test(userAgent)) {
+      deviceType = 'Tablet';
     }
 
-    if (/Windows/i.test(userAgent)) deviceOS = 'Windows';
-    else if (/Mac/i.test(userAgent)) deviceOS = 'MacOS';
-    else if (/Linux/i.test(userAgent)) deviceOS = 'Linux';
-    else if (/Android/i.test(userAgent)) deviceOS = 'Android';
-    else if (/iPhone|iPad/i.test(userAgent)) deviceOS = 'iOS';
+    // Detect OS
+    if (/Windows/i.test(userAgent)) {
+      deviceOS = 'Windows';
+      const match = userAgent.match(/Windows NT (\d+\.\d+)/);
+      if (match) deviceOS += ` ${match[1]}`;
+    } else if (/Mac/i.test(userAgent)) {
+      deviceOS = 'MacOS';
+      if (/iPhone|iPad|iPod/i.test(userAgent)) deviceOS = 'iOS';
+    } else if (/Linux/i.test(userAgent)) {
+      deviceOS = 'Linux';
+      if (/Android/i.test(userAgent)) {
+        deviceOS = 'Android';
+        const match = userAgent.match(/Android (\d+\.\d+)/);
+        if (match) deviceOS += ` ${match[1]}`;
+      }
+    } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
+      deviceOS = 'iOS';
+    }
 
-    if (/Chrome/i.test(userAgent)) browser = 'Chrome';
-    else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
-    else if (/Safari/i.test(userAgent)) browser = 'Safari';
-    else if (/Edge/i.test(userAgent)) browser = 'Edge';
+    // Detect browser and version
+    if (/Chrome/i.test(userAgent) && !/Edge|OPR/i.test(userAgent)) {
+      browser = 'Chrome';
+      const match = userAgent.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    } else if (/Firefox/i.test(userAgent)) {
+      browser = 'Firefox';
+      const match = userAgent.match(/Firefox\/(\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    } else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) {
+      browser = 'Safari';
+      const match = userAgent.match(/Version\/(\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    } else if (/Edge/i.test(userAgent)) {
+      browser = 'Edge';
+      const match = userAgent.match(/Edge\/(\d+\.\d+\.\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    } else if (/OPR/i.test(userAgent)) {
+      browser = 'Opera';
+      const match = userAgent.match(/OPR\/(\d+\.\d+\.\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    }
 
-    return { deviceType, deviceOS, browser };
+    return { 
+      deviceType, 
+      deviceOS, 
+      browser, 
+      browserVersion,
+      screenResolution,
+      viewportSize,
+      language,
+      platform
+    };
   };
 
   const getLocation = async () => {
@@ -93,6 +141,11 @@ const AIChat = () => {
           device_type: deviceInfo.deviceType,
           device_os: deviceInfo.deviceOS,
           browser: deviceInfo.browser,
+          browser_version: deviceInfo.browserVersion,
+          screen_resolution: deviceInfo.screenResolution,
+          viewport_size: deviceInfo.viewportSize,
+          language: deviceInfo.language,
+          platform: deviceInfo.platform,
           location_country: location.country,
           location_city: location.city,
           session_id: sessionId.current
@@ -110,8 +163,52 @@ const AIChat = () => {
     }
   };
 
-  const generateResponse = (userMessage) => {
+  const searchProducts = async (query) => {
+    try {
+      const response = await fetch(`http://localhost/qualityrentalservices/api/search-products.php?query=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      if (data.success && data.products.length > 0) {
+        return data.products;
+      }
+      return null;
+    } catch (error) {
+      console.error('Product search failed:', error);
+      return null;
+    }
+  };
+
+  const generateResponse = async (userMessage) => {
     const lowerMessage = userMessage.toLowerCase();
+    
+    // Check if user is searching for products
+    if (lowerMessage.includes('search') || lowerMessage.includes('find') || lowerMessage.includes('look for') || lowerMessage.includes('available')) {
+      // Extract search terms
+      const searchTerms = userMessage.replace(/search|find|look for|available/gi, '').trim();
+      
+      if (searchTerms) {
+        const products = await searchProducts(searchTerms);
+        
+        if (products && products.length > 0) {
+          let response = `I found ${products.length} product(s) matching "${searchTerms}":\n\n`;
+          
+          products.forEach((product, index) => {
+            const availability = product.stock_quantity > 0 && product.is_available ? '✅ Available' : '❌ Unavailable';
+            const currency = product.price_currency === 'LRD' ? 'LRD' : '$';
+            response += `${index + 1}. **${product.name}**\n`;
+            response += `   Price: ${currency}${product.price}\n`;
+            response += `   Stock: ${product.stock_quantity}\n`;
+            response += `   Status: ${availability}\n\n`;
+          });
+          
+          response += "Would you like to add any of these to your quote request?";
+          return response;
+        } else {
+          return `I couldn't find any products matching "${searchTerms}". Try searching for items like tents, chairs, tables, generators, or sound systems. You can also browse our full catalog in the rentals section.`;
+        }
+      } else {
+        return "What would you like me to search for? Please tell me the product name or category you're looking for.";
+      }
+    }
     
     // Simple rule-based responses
     if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
@@ -142,13 +239,13 @@ const AIChat = () => {
       return "You can easily get a quote by browsing our rentals, adding items to your quote request, and filling out the form. Just click 'Get a Quote' on any product!";
     }
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return "Hello! Welcome to Quality Rental Business Services. How can I assist you with your event rental needs today?";
+      return "Hello! Welcome to Quality Rental Business Services. How can I assist you with your event rental needs today? You can ask me to search for specific products or check availability.";
     }
     if (lowerMessage.includes('thank')) {
       return "You're welcome! Is there anything else I can help you with?";
     }
     
-    return "I'd be happy to help you with that! For detailed information about our rental services, please browse our catalog or contact us directly at +231776748152. What specific rental items are you interested in?";
+    return "I'd be happy to help you with that! You can ask me to search for specific products by name, or browse our catalog directly. What rental items are you interested in?";
   };
 
   const handleSendMessage = async (e) => {
@@ -203,7 +300,7 @@ const AIChat = () => {
     setTimeout(async () => {
       const botResponse = {
         id: Date.now() + 1,
-        text: generateResponse(inputValue),
+        text: await generateResponse(inputValue),
         sender: 'bot',
         timestamp: new Date()
       };
