@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as ImageIcon, Package, FileText, Globe, Menu, CreditCard, BarChart3, MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as ImageIcon, Package, FileText, Globe, Menu, CreditCard, BarChart3, MessageSquare, Eye, EyeOff, Palette } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSiteContent } from '../context/SiteContentContext';
 
@@ -25,6 +25,7 @@ const tabs = [
   { id: 'social', label: 'Footer', icon: Globe },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'chatlogs', label: 'Chat Logs', icon: MessageSquare },
+  { id: 'colors', label: 'Colors', icon: Palette },
 ];
 
 const AdminPanel = () => {
@@ -56,6 +57,8 @@ const AdminPanel = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [colorSettings, setColorSettings] = useState({});
+  const [isSavingColors, setIsSavingColors] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [modal, setModal] = useState({ open: false, type: null, mode: 'create', item: null });
@@ -83,6 +86,12 @@ const AdminPanel = () => {
   useEffect(() => {
     if (activeTab === 'rentals' && isLoggedIn) {
       fetchProductsForAdmin();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  useEffect(() => {
+    if (activeTab === 'colors' && isLoggedIn) {
+      fetchColorSettings();
     }
   }, [activeTab, isLoggedIn]);
 
@@ -127,6 +136,55 @@ const AdminPanel = () => {
     } catch (error) {
       console.error('Failed to fetch chat logs:', error);
     }
+  };
+
+  const fetchColorSettings = async () => {
+    try {
+      const response = await fetch('http://localhost/qualityrentalservices/api/color-settings.php');
+      const data = await response.json();
+      
+      if (data.success) {
+        const colors = {};
+        Object.keys(data.colors).forEach(key => {
+          colors[key] = data.colors[key].value;
+        });
+        setColorSettings(colors);
+        applyColorsToDOM(colors);
+      }
+    } catch (error) {
+      console.error('Failed to fetch color settings:', error);
+    }
+  };
+
+  const saveColorSettings = async () => {
+    setIsSavingColors(true);
+    try {
+      const response = await fetch('http://localhost/qualityrentalservices/api/color-settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ colors: colorSettings })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        applyColorsToDOM(colorSettings);
+        alert('Color settings saved successfully!');
+      } else {
+        alert('Failed to save color settings.');
+      }
+    } catch (error) {
+      alert('Network error. Please try again.');
+    } finally {
+      setIsSavingColors(false);
+    }
+  };
+
+  const applyColorsToDOM = (colors) => {
+    const root = document.documentElement;
+    Object.keys(colors).forEach(key => {
+      root.style.setProperty(`--color-${key}`, colors[key]);
+    });
   };
 
   const handleLogin = async (e) => {
@@ -1297,6 +1355,183 @@ const AdminPanel = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        );
+      case 'colors':
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-slate-800">Website Color Settings</h4>
+              <button 
+                type="button" 
+                onClick={saveColorSettings}
+                disabled={isSavingColors}
+                className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white hover:bg-navy transition-colors disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                {isSavingColors ? 'Saving...' : 'Save Colors'}
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.primary || '#D4AF37' }}
+                  />
+                  Primary Color (Gold)
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.primary || '#D4AF37'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, primary: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.secondary || '#1E3A5F' }}
+                  />
+                  Secondary Color (Navy)
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.secondary || '#1E3A5F'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, secondary: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.accent || '#F5F5F5' }}
+                  />
+                  Accent Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.accent || '#F5F5F5'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, accent: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.text || '#1F2937' }}
+                  />
+                  Text Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.text || '#1F2937'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, text: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.background || '#FFFFFF' }}
+                  />
+                  Background Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.background || '#FFFFFF'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, background: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.success || '#10B981' }}
+                  />
+                  Success Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.success || '#10B981'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, success: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.error || '#EF4444' }}
+                  />
+                  Error Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.error || '#EF4444'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, error: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 mb-3">
+                  <div 
+                    className="w-8 h-8 rounded border border-slate-300"
+                    style={{ backgroundColor: colorSettings.warning || '#F59E0B' }}
+                  />
+                  Warning Color
+                </label>
+                <input
+                  type="color"
+                  value={colorSettings.warning || '#F59E0B'}
+                  onChange={(e) => setColorSettings({ ...colorSettings, warning: e.target.value })}
+                  className="w-full h-10 rounded cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h5 className="text-sm font-semibold text-slate-700 mb-3">Color Preview</h5>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div 
+                  className="h-16 rounded-lg flex items-center justify-center text-xs font-medium"
+                  style={{ backgroundColor: colorSettings.primary || '#D4AF37', color: '#FFFFFF' }}
+                >
+                  Primary
+                </div>
+                <div 
+                  className="h-16 rounded-lg flex items-center justify-center text-xs font-medium"
+                  style={{ backgroundColor: colorSettings.secondary || '#1E3A5F', color: '#FFFFFF' }}
+                >
+                  Secondary
+                </div>
+                <div 
+                  className="h-16 rounded-lg flex items-center justify-center text-xs font-medium"
+                  style={{ backgroundColor: colorSettings.accent || '#F5F5F5', color: colorSettings.text || '#1F2937' }}
+                >
+                  Accent
+                </div>
+                <div 
+                  className="h-16 rounded-lg flex items-center justify-center text-xs font-medium"
+                  style={{ backgroundColor: colorSettings.background || '#FFFFFF', color: colorSettings.text || '#1F2937', border: '1px solid #e5e7eb' }}
+                >
+                  Background
+                </div>
+              </div>
             </div>
           </div>
         );
