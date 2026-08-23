@@ -9,14 +9,6 @@ const ProductCard = ({ product }) => {
   const isInQuote = quoteItems.some((item) => item.product_id === product.id);
   const quoteItem = quoteItems.find((item) => item.product_id === product.id);
 
-  // Debug image URL
-  console.log('=== ProductCard Image Debug ===');
-  console.log('Product ID:', product.id);
-  console.log('Product Name:', product.name);
-  console.log('Image URL:', product.image_url);
-  console.log('Image URL length:', product.image_url?.length || 0);
-  console.log('Image URL starts with data:image:', product.image_url?.startsWith('data:image') || false);
-
   const handleAddToQuote = () => {
     addItem(product, 1);
     setIsAdded(true);
@@ -37,20 +29,12 @@ const ProductCard = ({ product }) => {
   const isAvailable = Number(product.stock_quantity) > 0;
 
   const handleImageError = (e) => {
-    console.error('=== Image Load Error ===');
-    console.error('Product ID:', product.id);
-    console.error('Product Name:', product.name);
-    console.error('Image URL:', product.image_url);
-    console.error('Error:', e);
     // Set fallback image
     e.target.src = 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200';
   };
 
   const handleImageLoad = () => {
-    console.log('=== Image Load Success ===');
-    console.log('Product ID:', product.id);
-    console.log('Product Name:', product.name);
-    console.log('Image URL length:', product.image_url?.length || 0);
+    // Image loaded successfully
   };
 
   return (
@@ -137,4 +121,4 @@ const ProductCard = ({ product }) => {
   );
 };
 
-export default ProductCard;
+export default React.memo(ProductCard);
