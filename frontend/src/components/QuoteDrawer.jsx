@@ -21,6 +21,29 @@ const QuoteDrawer = () => {
     resetQuote,
   } = useQuote();
 
+  // Calculate total price
+  const calculateTotalPrice = () => {
+    let total = 0;
+    let hasContactForPrice = false;
+
+    quoteItems.forEach((item) => {
+      const price = item.product_details.price;
+      if (price && typeof price === 'string' && !price.toLowerCase().includes('contact')) {
+        // Try to extract numeric value from price string (e.g., "$50/day" -> 50)
+        const numericPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
+        if (!isNaN(numericPrice)) {
+          total += numericPrice * item.quantity;
+        }
+      } else if (!price || (typeof price === 'string' && price.toLowerCase().includes('contact'))) {
+        hasContactForPrice = true;
+      }
+    });
+
+    return { total, hasContactForPrice };
+  };
+
+  const { total, hasContactForPrice } = calculateTotalPrice();
+
   const handleDateChange = (e) => {
     const selectedDate = new Date(e.target.value);
     const today = new Date();
@@ -176,6 +199,24 @@ const QuoteDrawer = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {quoteItems.length > 0 && (
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Estimated Total:</span>
+                    <div className="text-right">
+                      {hasContactForPrice ? (
+                        <span className="text-gold font-medium">Contact for pricing</span>
+                      ) : (
+                        <span className="text-navy font-bold text-lg">${total.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+                  {hasContactForPrice && (
+                    <p className="text-xs text-gray-500 mt-1">Some items require custom pricing</p>
+                  )}
                 </div>
               )}
 

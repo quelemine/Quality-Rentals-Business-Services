@@ -96,6 +96,22 @@ export const QuoteProvider = ({ children }) => {
     setIsSubmitting(true);
     try {
       console.log('=== Quote Submission Debug ===');
+      // Calculate estimated total
+      let estimatedTotal = 0;
+      let hasContactForPrice = false;
+
+      quoteItems.forEach((item) => {
+        const price = item.product_details.price;
+        if (price && typeof price === 'string' && !price.toLowerCase().includes('contact')) {
+          const numericPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
+          if (!isNaN(numericPrice)) {
+            estimatedTotal += numericPrice * item.quantity;
+          }
+        } else if (!price || (typeof price === 'string' && price.toLowerCase().includes('contact'))) {
+          hasContactForPrice = true;
+        }
+      });
+
       const quoteData = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -107,6 +123,7 @@ export const QuoteProvider = ({ children }) => {
         delivery_address: formData.deliveryType === 'Delivery Required' ? formData.deliveryAddress : null,
         special_notes: formData.specialNotes,
         contact_method: formData.contactMethod,
+        estimated_total: hasContactForPrice ? null : estimatedTotal,
         items: quoteItems.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
