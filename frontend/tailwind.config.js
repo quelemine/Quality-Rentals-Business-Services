@@ -7,9 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        gold: '#D4A337',
-        navy: '#0A2540',
-        'light-grey': '#F8F9FA',
+        gold: 'var(--color-primary)',
+        navy: 'var(--color-secondary)',
+        'light-grey': 'var(--color-accent)',
+        primary: 'var(--color-primary)',
+        secondary: 'var(--color-secondary)',
+        accent: 'var(--color-accent)',
+        success: 'var(--color-success)',
+        error: 'var(--color-error)',
+        warning: 'var(--color-warning)',
       },
       fontFamily: {
         serif: ['Playfair Display', 'serif'],
