@@ -76,13 +76,6 @@ const QuoteDrawer = () => {
 
   const { total, hasContactForPrice } = calculateTotalPrice();
 
-  // Currency conversion: USD to LRD (Liberian Dollar)
-  // Exchange rate: 1 USD = 200 LRD (approximate, can be updated)
-  const USD_TO_LRD_RATE = 200;
-  const convertToLRD = (usdAmount) => {
-    return usdAmount * USD_TO_LRD_RATE;
-  };
-
   const handleDateChange = (e) => {
     const selectedDate = new Date(e.target.value);
     const today = new Date();
