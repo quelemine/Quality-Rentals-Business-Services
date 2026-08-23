@@ -284,6 +284,34 @@ const QuoteDrawer = () => {
           {/* Step 3: Contact */}
           {currentStep === 3 && (
             <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-navy mb-2">
+                  Send Quote Request To *
+                </label>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => updateFormData('contactMethod', 'email')}
+                    className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
+                      formData.contactMethod === 'email'
+                        ? 'border-gold bg-gold/10 text-navy'
+                        : 'border-gray-300 text-gray-600 hover:border-gold'
+                    }`}
+                  >
+                    Email
+                  </button>
+                  <button
+                    onClick={() => updateFormData('contactMethod', 'whatsapp')}
+                    className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
+                      formData.contactMethod === 'whatsapp'
+                        ? 'border-gold bg-gold/10 text-navy'
+                        : 'border-gray-300 text-gray-600 hover:border-gold'
+                    }`}
+                  >
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy mb-2 flex items-center">
@@ -294,7 +322,7 @@ const QuoteDrawer = () => {
                     type="text"
                     value={formData.firstName}
                     onChange={(e) => updateFormData('firstName', e.target.value)}
-                    placeholder="John"
+                    placeholder="Susannah"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                   />
                 </div>
@@ -306,7 +334,7 @@ const QuoteDrawer = () => {
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => updateFormData('lastName', e.target.value)}
-                    placeholder="Doe"
+                    placeholder="Paye"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                   />
                 </div>
@@ -321,7 +349,7 @@ const QuoteDrawer = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => updateFormData('email', e.target.value)}
-                  placeholder="john@example.com"
+                  placeholder="paye.susanna@yahoo.com"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                 />
               </div>

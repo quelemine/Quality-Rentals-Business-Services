@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS quote_requests (
     delivery_address TEXT,
     special_notes TEXT,
     status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Reviewed', 'Approved', 'Cancelled')),
+    contact_method VARCHAR(20) DEFAULT 'email' CHECK (contact_method IN ('email', 'whatsapp')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
