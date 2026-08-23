@@ -369,7 +369,8 @@ const AdminPanel = () => {
             const payload = {
               ...modal.item,
               id: modal.mode === 'edit' ? Number(modal.item.id) : undefined,
-              image_url: modal.item.image_url || ''
+              image_url: modal.item.image_url || '',
+              price_currency: modal.item.price_currency || 'USD'
             };
             
             console.log('=== Product Save Debug ===');
@@ -1307,7 +1308,25 @@ const AdminPanel = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Price</label>
-                    <input value={modal.item?.price || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, price: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    <div className="flex gap-2">
+                      <select 
+                        value={modal.item?.price_currency || 'USD'} 
+                        onChange={(e) => setModal({ ...modal, item: { ...modal.item, price_currency: e.target.value } })}
+                        className="w-24 rounded-lg border border-slate-200 p-2.5"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="LRD">LRD</option>
+                      </select>
+                      <input 
+                        value={modal.item?.price || ''} 
+                        onChange={(e) => setModal({ ...modal, item: { ...modal.item, price: e.target.value } })} 
+                        className="flex-1 rounded-lg border border-slate-200 p-2.5" 
+                        placeholder="Enter price"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {modal.item?.price_currency === 'LRD' ? 'Price in Liberian Dollars (LRD)' : 'Price in US Dollars (USD)'}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Description</label>
