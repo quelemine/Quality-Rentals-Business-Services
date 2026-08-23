@@ -49,6 +49,7 @@ const AdminPanel = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
   const [changePasswordMessage, setChangePasswordMessage] = useState('');
   const [isSubmittingChangePassword, setIsSubmittingChangePassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -128,22 +129,37 @@ const AdminPanel = () => {
     }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
 
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('qrs-admin-session', 'true');
-      setIsLoggedIn(true);
-      setError('');
-      setIsOpen(true);
-      return;
+    try {
+      const response = await fetch('http://localhost/qualityrentalservices/api/auth/login.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        sessionStorage.setItem('qrs-admin-session', 'true');
+        sessionStorage.setItem('qrs-admin-username', data.admin.username);
+        sessionStorage.setItem('qrs-admin-email', data.admin.email);
+        setIsLoggedIn(true);
+        setIsOpen(true);
+      } else {
+        setError(data.message || 'Invalid username or password.');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
     }
-
-    setError('Invalid username or password.');
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem('qrs-admin-session');
+    sessionStorage.removeItem('qrs-admin-username');
+    sessionStorage.removeItem('qrs-admin-email');
     setIsLoggedIn(false);
     setIsOpen(false);
     setModal({ open: false, type: null, mode: 'create', item: null });
@@ -201,6 +217,8 @@ const AdminPanel = () => {
       return;
     }
 
+    const email = sessionStorage.getItem('qrs-admin-email') || 'admin@qualityrentalservices.com';
+
     setIsSubmittingChangePassword(true);
 
     try {
@@ -208,10 +226,11 @@ const AdminPanel = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'admin@qualityrentalservices.com', // This should come from session
+          email,
           currentPassword,
           newPassword,
-          confirmPassword: confirmNewPassword
+          confirmPassword: confirmNewPassword,
+          newUsername: newUsername || null
         })
       });
 
@@ -222,6 +241,13 @@ const AdminPanel = () => {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
+        setNewUsername('');
+        
+        // Update session if username changed
+        if (newUsername) {
+          sessionStorage.setItem('qrs-admin-username', newUsername);
+        }
+        
         setTimeout(() => setShowChangePassword(false), 2000);
       } else {
         setChangePasswordMessage(data.message || 'Failed to change password.');
@@ -1579,19 +1605,30 @@ const AdminPanel = () => {
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-gold">Security</p>
-                <h3 className="mt-1 text-2xl font-bold text-navy">Change Password</h3>
+                <h3 className="mt-1 text-2xl font-bold text-navy">Change Password & Username</h3>
               </div>
               <button type="button" onClick={() => {
                 setShowChangePassword(false);
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
+                setNewUsername('');
                 setChangePasswordMessage('');
               }} className="rounded-full p-2 hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">New Username (Optional)</label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Leave blank to keep current username"
+                  className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                />
+              </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Current Password</label>
                 <div className="mt-1 relative">
