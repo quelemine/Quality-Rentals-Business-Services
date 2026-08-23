@@ -117,7 +117,13 @@ const ProductCatalog = () => {
         </div>
 
         <div className="text-center mt-12">
-          <button className="bg-gold text-white px-8 py-4 rounded-full font-medium hover:bg-navy transition-colors">
+          <button 
+            onClick={() => {
+              setActiveCategory(null);
+              document.getElementById('rentals').scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="bg-gold text-white px-8 py-4 rounded-full font-medium hover:bg-navy transition-colors"
+          >
             View Full Catalog
           </button>
         </div>
