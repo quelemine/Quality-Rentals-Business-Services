@@ -34,29 +34,7 @@ const ProductCard = ({ product }) => {
     setIsAdded(false);
   };
 
-  const isAvailable = Number(product.stock_quantity) > 0 && Boolean(Number(product.is_available));
-
-  // Specific debugging as requested
-  console.log("Product availability debug:", {
-    id: product.id,
-    name: product.name,
-    stock_quantity: product.stock_quantity,
-    is_available: product.is_available,
-    type_stock: typeof product.stock_quantity,
-    type_available: typeof product.is_available
-  });
-
-  // Additional debugging
-  console.log('=== Availability Logic Debug ===');
-  console.log('Product:', product.name);
-  console.log('stock_quantity:', product.stock_quantity);
-  console.log('stock_quantity type:', typeof product.stock_quantity);
-  console.log('Number(stock_quantity || 0):', Number(product.stock_quantity || 0));
-  console.log('Number(stock_quantity || 0) > 0:', Number(product.stock_quantity || 0) > 0);
-  console.log('is_available:', product.is_available);
-  console.log('is_available type:', typeof product.is_available);
-  console.log('Boolean(product.is_available):', Boolean(product.is_available));
-  console.log('Final isAvailable:', isAvailable);
+  const isAvailable = Number(product.stock_quantity) > 0;
 
   const handleImageError = (e) => {
     console.error('=== Image Load Error ===');
