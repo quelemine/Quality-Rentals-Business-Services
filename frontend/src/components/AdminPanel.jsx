@@ -1364,7 +1364,56 @@ const AdminPanel = () => {
               </button>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+            {/* Mobile Card View */}
+            <div className="space-y-3 md:hidden">
+              {chatLogs.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500">
+                  No chat logs available
+                </div>
+              ) : (
+                chatLogs.map((log) => (
+                  <div key={log.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          log.sender === 'user' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                        }`}>
+                          {log.sender}
+                        </span>
+                        <span className="text-sm font-medium text-slate-800">{log.user_name || 'Anonymous'}</span>
+                      </div>
+                      <span className="text-xs text-slate-500">{new Date(log.created_at).toLocaleString()}</span>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-sm text-slate-600">{log.message}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                      <div>
+                        <span className="font-medium">Device:</span> {log.device_type || 'Unknown'}
+                      </div>
+                      <div>
+                        <span className="font-medium">OS:</span> {log.device_os || 'Unknown'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Browser:</span> {log.browser || 'Unknown'} {log.browser_version || ''}
+                      </div>
+                      <div>
+                        <span className="font-medium">Screen:</span> {log.screen_resolution || 'Unknown'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Language:</span> {log.language || 'Unknown'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Location:</span> {log.location_city ? `${log.location_city}, ${log.location_country}` : log.location_country || 'Unknown'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
