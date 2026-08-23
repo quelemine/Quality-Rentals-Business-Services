@@ -28,7 +28,7 @@ const tabs = [
 ];
 
 const AdminPanel = () => {
-  const { siteContent, setSiteContent, resetContent } = useSiteContent();
+  const { siteContent, setSiteContent, resetContent, resetWebsiteContent } = useSiteContent();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -65,12 +65,49 @@ const AdminPanel = () => {
     }
   }, [activeTab, isLoggedIn]);
 
+  useEffect(() => {
+    if (activeTab === 'rentals' && isLoggedIn) {
+      fetchProductsForAdmin();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  const fetchProductsForAdmin = async () => {
+    try {
+      const response = await fetch('/api/products.php');
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        setSiteContent({
+          ...siteContent,
+          catalog: {
+            ...siteContent.catalog,
+            products: data
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch products for admin:', error);
+    }
+  };
+
   const fetchChatLogs = async () => {
     try {
+      console.log('Fetching chat logs...');
       const response = await fetch('http://localhost/qualityrentalservices/api/chat-logs.php');
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('Chat logs data:', data);
+      
       if (data.success) {
         setChatLogs(data.logs);
+        console.log('Chat logs updated successfully. Total logs:', data.logs.length);
+      } else {
+        console.error('API returned error:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch chat logs:', error);
@@ -112,6 +149,23 @@ const AdminPanel = () => {
     }
 
     setIsOpen(false);
+  };
+
+  const handleSaveAndClose = async () => {
+    try {
+      // Save site content to localStorage via context
+      if (typeof setSiteContent === 'function') {
+        // The context should handle localStorage persistence
+        // Force a save by setting the content
+        localStorage.setItem('quality-rental-site-content-v1', JSON.stringify(siteContent));
+      }
+      
+      alert('Changes saved successfully!');
+      closePanel();
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      alert('Error saving changes: ' + error.message);
+    }
   };
 
   const updateBusinessField = (field, value) => {
@@ -205,11 +259,24 @@ const AdminPanel = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('=== Image Upload Debug ===');
+    console.log('Selected file:', file.name);
+    console.log('File size:', file.size);
+    console.log('File type:', file.type);
+
     const base64 = await imageToBase64(file);
+    console.log('Base64 length:', base64.length);
+    console.log('Base64 preview:', base64.substring(0, 100) + '...');
+
+    // Update modal state with the new image URL
+    const updatedItem = { ...modal.item, image_url: base64 };
     setModal({
       ...modal,
-      item: { ...modal.item, image_url: base64 },
+      item: updatedItem,
     });
+
+    console.log('Modal item image_url updated:', updatedItem.image_url ? 'Yes' : 'No');
+    console.log('Updated image_url length:', updatedItem.image_url?.length || 0);
   };
 
   const addEvent = () => {
@@ -235,6 +302,9 @@ const AdminPanel = () => {
       image_url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=1200',
       category_id: siteContent.catalog.categories[0]?.id || 1,
       price: 'From $0',
+      slug: '',
+      is_available: true,
+      stock_quantity: 0,
       client: 'New Client',
       amount: 0,
       method: 'Cash',
@@ -243,7 +313,18 @@ const AdminPanel = () => {
       notes: 'Payment recorded from the dashboard',
     };
 
-    setModal({ open: true, type, mode, item: { ...baseItem, ...(item || {}) } });
+    // When editing, use the existing item with its original ID
+    // When creating, use baseItem with a new ID
+    const modalItem = mode === 'edit' && item ? { ...item } : { ...baseItem };
+
+    console.log('=== Open Modal Debug ===');
+    console.log('Type:', type);
+    console.log('Mode:', mode);
+    console.log('Item passed:', item);
+    console.log('Modal item image_url:', modalItem.image_url);
+    console.log('Modal item image_url length:', modalItem.image_url?.length || 0);
+
+    setModal({ open: true, type, mode, item: modalItem });
   };
 
   const closeModal = () => setModal({ open: false, type: null, mode: 'create', item: null });
@@ -279,26 +360,65 @@ const AdminPanel = () => {
         break;
       }
       case 'product': {
-        if (modal.mode === 'create') {
-          setSiteContent({
-            ...siteContent,
-            catalog: {
-              ...siteContent.catalog,
-              products: [...siteContent.catalog.products, { ...modal.item, id: Date.now() }],
-            },
-          });
-        } else {
-          setSiteContent({
-            ...siteContent,
-            catalog: {
-              ...siteContent.catalog,
-              products: siteContent.catalog.products.map((product) =>
-                product.id === modal.item.id ? { ...product, ...modal.item } : product
-              ),
-            },
-          });
-        }
-        break;
+        const saveProduct = async () => {
+          try {
+            const url = '/api/products.php';
+            const method = modal.mode === 'create' ? 'POST' : 'PUT';
+            
+            // Ensure ID is sent as number for PUT requests
+            const payload = {
+              ...modal.item,
+              id: modal.mode === 'edit' ? Number(modal.item.id) : undefined,
+              image_url: modal.item.image_url || ''
+            };
+            
+            console.log('=== Product Save Debug ===');
+            console.log('Mode:', modal.mode);
+            console.log('API URL:', url);
+            console.log('HTTP Method:', method);
+            console.log('Product ID:', modal.item.id);
+            console.log('Product ID type:', typeof modal.item.id);
+            console.log('Payload ID:', payload.id);
+            console.log('Payload ID type:', typeof payload.id);
+            console.log('Product Data:', modal.item);
+            console.log('Image URL:', modal.item.image_url);
+            console.log('Image URL length:', modal.item.image_url?.length || 0);
+            console.log('Payload Image URL:', payload.image_url);
+            console.log('Payload Image URL length:', payload.image_url?.length || 0);
+            
+            const response = await fetch(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            console.log('Response Status:', response.status);
+            console.log('Response OK:', response.ok);
+            
+            const result = await response.json();
+            console.log('Response Body:', result);
+            
+            if (response.ok) {
+              alert('Product saved successfully!');
+              closeModal();
+              
+              // Refresh products from API
+              await fetchProductsForAdmin();
+            } else {
+              console.error('=== Save Failed ===');
+              console.error('Error:', result.message || result.error || 'Unknown error');
+              alert('Failed to save product: ' + (result.message || result.error || 'Unknown error'));
+            }
+          } catch (error) {
+            console.error('=== Network Error ===');
+            console.error('Error:', error);
+            console.error('Error Message:', error.message);
+            alert('Network error: ' + error.message + '\n\nPlease check:\n1. XAMPP Apache is running\n2. API URL is correct\n3. Database connection is working');
+          }
+        };
+        
+        saveProduct();
+        return; // Don't call closeModal() - let saveProduct handle it
       }
       case 'category': {
         if (modal.mode === 'create') {
@@ -342,7 +462,10 @@ const AdminPanel = () => {
         break;
     }
 
-    closeModal();
+    // Only close modal if it wasn't already closed by the async save operation
+    if (modal.type !== 'product') {
+      closeModal();
+    }
   };
 
   const addPaymentRecord = () => {
@@ -835,6 +958,25 @@ const AdminPanel = () => {
       case 'rentals':
         return (
           <div className="space-y-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h4 className="font-semibold text-slate-700 mb-4">Section Header</h4>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Badge (Small Text)</label>
+                  <input value={siteContent.catalog?.badge || ''} onChange={(e) => setSiteContent({
+                    ...siteContent,
+                    catalog: { ...siteContent.catalog, badge: e.target.value }
+                  })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title (Large Text)</label>
+                  <input value={siteContent.catalog?.title || ''} onChange={(e) => setSiteContent({
+                    ...siteContent,
+                    catalog: { ...siteContent.catalog, title: e.target.value }
+                  })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                </div>
+              </div>
+            </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-slate-700">Categories</h4>
@@ -999,7 +1141,10 @@ const AdminPanel = () => {
                     <th className="px-3 py-3">Message</th>
                     <th className="px-3 py-3">Sender</th>
                     <th className="px-3 py-3">Device</th>
+                    <th className="px-3 py-3">OS</th>
                     <th className="px-3 py-3">Browser</th>
+                    <th className="px-3 py-3">Screen</th>
+                    <th className="px-3 py-3">Language</th>
                     <th className="px-3 py-3">Location</th>
                     <th className="px-3 py-3">Time</th>
                   </tr>
@@ -1007,13 +1152,13 @@ const AdminPanel = () => {
                 <tbody>
                   {chatLogs.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-3 py-8 text-center text-slate-500">No chat logs available</td>
+                      <td colSpan="10" className="px-3 py-8 text-center text-slate-500">No chat logs available</td>
                     </tr>
                   ) : (
                     chatLogs.map((log) => (
                       <tr key={log.id} className="border-t border-slate-200">
                         <td className="px-3 py-3 font-medium text-slate-800">{log.user_name || 'Anonymous'}</td>
-                        <td className="px-3 py-3 text-slate-600 max-w-xs truncate">{log.message}</td>
+                        <td className="px-3 py-3 text-slate-600 max-w-xs truncate" title={log.message}>{log.message}</td>
                         <td className="px-3 py-3">
                           <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                             log.sender === 'user' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
@@ -1022,9 +1167,12 @@ const AdminPanel = () => {
                           </span>
                         </td>
                         <td className="px-3 py-3 text-slate-600">{log.device_type || 'Unknown'}</td>
-                        <td className="px-3 py-3 text-slate-600">{log.browser || 'Unknown'}</td>
-                        <td className="px-3 py-3 text-slate-600">{log.location_city ? `${log.location_city}, ${log.location_country}` : log.location_country || 'Unknown'}</td>
-                        <td className="px-3 py-3 text-slate-600">{new Date(log.created_at).toLocaleString()}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{log.device_os || 'Unknown'}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{log.browser || 'Unknown'} {log.browser_version || ''}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{log.screen_resolution || 'Unknown'}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{log.language || 'Unknown'}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{log.location_city ? `${log.location_city}, ${log.location_country}` : log.location_country || 'Unknown'}</td>
+                        <td className="px-3 py-3 text-slate-600 text-xs">{new Date(log.created_at).toLocaleString()}</td>
                       </tr>
                     ))
                   )}
@@ -1173,9 +1321,32 @@ const AdminPanel = () => {
                       ))}
                     </select>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Available</label>
+                      <select value={modal.item?.is_available !== undefined ? modal.item.is_available : true} onChange={(e) => setModal({ ...modal, item: { ...modal.item, is_available: e.target.value === 'true' } })} className="w-full rounded-lg border border-slate-200 p-2.5">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Stock Quantity</label>
+                      <input type="number" value={modal.item?.stock_quantity || 0} onChange={(e) => setModal({ ...modal, item: { ...modal.item, stock_quantity: Number(e.target.value) } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Image URL</label>
                     <input value={modal.item?.image_url || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, image_url: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Image Preview</label>
+                    {modal.item?.image_url ? (
+                      <img src={modal.item.image_url} alt="Product preview" className="h-32 w-32 rounded-lg object-cover border border-slate-200" />
+                    ) : (
+                      <div className="h-32 w-32 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                        No image
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Upload Image</label>
@@ -1265,7 +1436,11 @@ const AdminPanel = () => {
           </nav>
 
           <div className="border-t border-slate-700 p-4">
-            <button type="button" onClick={() => resetContent()} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            <button type="button" onClick={() => {
+              if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
+                resetWebsiteContent();
+              }
+            }} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
               <RefreshCw className="h-4 w-4" />
               Reset Content
             </button>
@@ -1289,7 +1464,11 @@ const AdminPanel = () => {
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
-              <button type="button" onClick={() => resetContent()} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
+              <button type="button" onClick={() => {
+                if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
+                  resetWebsiteContent();
+                }
+              }} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
                 <RefreshCw className="h-4 w-4" />
                 Reset
               </button>
@@ -1297,7 +1476,7 @@ const AdminPanel = () => {
                 <Shield className="h-4 w-4" />
                 Logout
               </button>
-              <button type="button" onClick={closePanel} className="flex items-center gap-2 rounded-lg bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-gold">
+              <button type="button" onClick={handleSaveAndClose} className="flex items-center gap-2 rounded-lg bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-gold">
                 <Save className="h-4 w-4" />
                 Save & Close
               </button>

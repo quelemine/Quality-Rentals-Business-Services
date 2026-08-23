@@ -1,14 +1,78 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import ProductCard from './ProductCard';
 import { Tent, Armchair, Container, Layers } from 'lucide-react';
 import { useSiteContent } from '../context/SiteContentContext';
+import { fetchCategories, fetchProducts } from '../services/api';
 
 const ProductCatalog = () => {
   const { siteContent } = useSiteContent();
   const [activeCategory, setActiveCategory] = useState(null);
+  const [apiCategories, setApiCategories] = useState([]);
+  const [apiProducts, setApiProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = siteContent.catalog?.categories || [];
-  const products = siteContent.catalog?.products || [];
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [categoriesData, productsData] = await Promise.all([
+          fetchCategories(),
+          fetchProducts()
+        ]);
+        
+        console.log('=== ProductCatalog API Debug ===');
+        console.log('Products Data:', productsData);
+        console.log('Products Data type:', typeof productsData);
+        console.log('Is Array:', Array.isArray(productsData));
+        
+        if (Array.isArray(productsData) && productsData.length > 0) {
+          console.log('First product:', productsData[0]);
+          console.log('First product image_url:', productsData[0].image_url);
+          console.log('First product image_url length:', productsData[0].image_url?.length || 0);
+          console.log('First product image_url starts with data:image:', productsData[0].image_url?.startsWith('data:image') || false);
+        }
+        
+        setApiCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setApiProducts(Array.isArray(productsData) ? productsData : []);
+      } catch (error) {
+        console.error('Error loading catalog data:', error);
+        // Fallback to localStorage data if API fails
+        console.log('=== Fallback to localStorage ===');
+        console.log('localStorage products:', siteContent.catalog?.products || []);
+        setApiCategories(siteContent.catalog?.categories || []);
+        setApiProducts(siteContent.catalog?.products || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const categories = apiCategories.length > 0 ? apiCategories : siteContent.catalog?.categories || [];
+  const products = apiProducts.length > 0 ? apiProducts : siteContent.catalog?.products || [];
+
+  // Temporary debug function to clear localStorage
+  const clearLocalStorageAndReload = () => {
+    console.log('Clearing localStorage and reloading...');
+    localStorage.removeItem('quality-rental-site-content-v1');
+    window.location.reload();
+  };
+
+  // Debug data source
+  console.log('=== ProductCatalog Data Source Debug ===');
+  console.log('Using API data:', apiProducts.length > 0);
+  console.log('Using localStorage fallback:', apiProducts.length === 0);
+  console.log('API products count:', apiProducts.length);
+  console.log('localStorage products count:', siteContent.catalog?.products?.length || 0);
+  console.log('Final products count:', products.length);
+  
+  if (products.length > 0) {
+    const coolers = products.find(p => p.name?.toLowerCase().includes('cooler'));
+    if (coolers) {
+      console.log('Coolers product found:', coolers);
+      console.log('Coolers stock_quantity:', coolers.stock_quantity);
+      console.log('Coolers is_available:', coolers.is_available);
+    }
+  }
 
   const visibleProducts = useMemo(() => {
     if (activeCategory === null) return products;
@@ -26,12 +90,25 @@ const ProductCatalog = () => {
     return <IconComponent className="w-5 h-5" />;
   };
 
+  if (loading) {
+    return (
+      <section id="rentals" className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gold"></div>
+            <p className="mt-4 text-gray-600">Loading rentals...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="rentals" className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <span className="text-gold font-medium text-sm tracking-wider uppercase">What We Rent</span>
-          <h2 className="text-3xl lg:text-4xl font-serif font-bold text-navy mt-2">Everything You Need for a Successful Event</h2>
+          <span className="text-gold font-medium text-sm tracking-wider uppercase">{siteContent.catalog?.badge || 'What We Rent'}</span>
+          <h2 className="text-3xl lg:text-4xl font-serif font-bold text-navy mt-2">{siteContent.catalog?.title || 'Everything You Need for a Successful Event'}</h2>
         </div>
 
         <div className="flex overflow-x-auto space-x-2 mb-12 pb-4 scrollbar-hide">
@@ -63,9 +140,15 @@ const ProductCatalog = () => {
           ))}
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 space-y-4">
           <button className="bg-gold text-white px-8 py-4 rounded-full font-medium hover:bg-navy transition-colors">
             View Full Catalog
+          </button>
+          <button 
+            onClick={clearLocalStorageAndReload}
+            className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-red-600 transition-colors"
+          >
+            Clear Cache & Reload (Debug)
           </button>
         </div>
       </div>
