@@ -20,25 +20,11 @@ const ProductCatalog = () => {
           fetchProducts()
         ]);
         
-        console.log('=== ProductCatalog API Debug ===');
-        console.log('Products Data:', productsData);
-        console.log('Products Data type:', typeof productsData);
-        console.log('Is Array:', Array.isArray(productsData));
-        
-        if (Array.isArray(productsData) && productsData.length > 0) {
-          console.log('First product:', productsData[0]);
-          console.log('First product image_url:', productsData[0].image_url);
-          console.log('First product image_url length:', productsData[0].image_url?.length || 0);
-          console.log('First product image_url starts with data:image:', productsData[0].image_url?.startsWith('data:image') || false);
-        }
-        
         setApiCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setApiProducts(Array.isArray(productsData) ? productsData : []);
       } catch (error) {
         console.error('Error loading catalog data:', error);
         // Fallback to localStorage data if API fails
-        console.log('=== Fallback to localStorage ===');
-        console.log('localStorage products:', siteContent.catalog?.products || []);
         setApiCategories(siteContent.catalog?.categories || []);
         setApiProducts(siteContent.catalog?.products || []);
       } finally {
