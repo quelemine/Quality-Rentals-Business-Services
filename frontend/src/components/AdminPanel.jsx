@@ -61,6 +61,7 @@ const AdminPanel = () => {
   const [modal, setModal] = useState({ open: false, type: null, mode: 'create', item: null });
   const [touchStartX, setTouchStartX] = useState(null);
   const [chatLogs, setChatLogs] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [isDirectLinkAccess, setIsDirectLinkAccess] = useState(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('admin') === '1';
@@ -83,6 +84,7 @@ const AdminPanel = () => {
   useEffect(() => {
     if (activeTab === 'rentals' && isLoggedIn) {
       fetchProductsForAdmin();
+      fetchCategoriesForAdmin();
     }
   }, [activeTab, isLoggedIn]);
 
@@ -108,6 +110,41 @@ const AdminPanel = () => {
       }
     } catch (error) {
       console.error('Failed to fetch products for admin:', error);
+    }
+  };
+
+  const fetchCategoriesForAdmin = async () => {
+    try {
+      const response = await fetch('/api/categories.php');
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        setSiteContent({
+          ...siteContent,
+          catalog: {
+            ...siteContent.catalog,
+            categories: data
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories for admin:', error);
+    }
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  const refreshData = async () => {
+    try {
+      await fetchProductsForAdmin();
+      await fetchCategoriesForAdmin();
+      showToast('Data refreshed successfully!');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      showToast('Failed to refresh data', 'error');
     }
   };
 
@@ -573,7 +610,7 @@ const AdminPanel = () => {
             console.log('Response Body:', result);
             
             if (response.ok) {
-              alert('Product saved successfully!');
+              showToast('Product saved successfully!');
               closeModal();
               
               // Refresh products from API
@@ -581,13 +618,13 @@ const AdminPanel = () => {
             } else {
               console.error('=== Save Failed ===');
               console.error('Error:', result.message || result.error || 'Unknown error');
-              alert('Failed to save product: ' + (result.message || result.error || 'Unknown error'));
+              showToast('Failed to save product: ' + (result.message || result.error || 'Unknown error'), 'error');
             }
           } catch (error) {
             console.error('=== Network Error ===');
             console.error('Error:', error);
             console.error('Error Message:', error.message);
-            alert('Network error: ' + error.message + '\n\nPlease check:\n1. XAMPP Apache is running\n2. API URL is correct\n3. Database connection is working');
+            showToast('Network error: ' + error.message, 'error');
           }
         };
         
@@ -595,26 +632,39 @@ const AdminPanel = () => {
         return; // Don't call closeModal() - let saveProduct handle it
       }
       case 'category': {
-        if (modal.mode === 'create') {
-          setSiteContent({
-            ...siteContent,
-            catalog: {
-              ...siteContent.catalog,
-              categories: [...siteContent.catalog.categories, { ...modal.item, id: Date.now() }],
-            },
-          });
-        } else {
-          setSiteContent({
-            ...siteContent,
-            catalog: {
-              ...siteContent.catalog,
-              categories: siteContent.catalog.categories.map((category) =>
-                category.id === modal.item.id ? { ...category, ...modal.item } : category
-              ),
-            },
-          });
-        }
-        break;
+        const saveCategory = async () => {
+          try {
+            const url = '/api/categories.php';
+            const method = modal.mode === 'create' ? 'POST' : 'PUT';
+            
+            const payload = {
+              ...modal.item,
+              id: modal.mode === 'edit' ? Number(modal.item.id) : undefined
+            };
+            
+            const response = await fetch(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+              showToast('Category saved successfully!');
+              closeModal();
+              await fetchCategoriesForAdmin();
+            } else {
+              showToast('Failed to save category: ' + (result.message || 'Unknown error'), 'error');
+            }
+          } catch (error) {
+            console.error('Error saving category:', error);
+            showToast('Network error: ' + error.message, 'error');
+          }
+        };
+        
+        saveCategory();
+        return;
       }
       case 'payment': {
         if (modal.mode === 'create') {
@@ -784,18 +834,25 @@ const AdminPanel = () => {
     });
   };
 
-  const deleteCategory = (id) => {
-    const remainingCategories = siteContent.catalog.categories.filter((category) => category.id !== id);
-    const remainingProducts = siteContent.catalog.products.filter((product) => product.category_id !== id);
-
-    setSiteContent({
-      ...siteContent,
-      catalog: {
-        ...siteContent.catalog,
-        categories: remainingCategories,
-        products: remainingProducts,
-      },
-    });
+  const deleteCategory = async (id) => {
+    try {
+      const response = await fetch(`/api/categories.php?id=${id}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        showToast('Category deleted successfully!');
+        await fetchCategoriesForAdmin();
+        await fetchProductsForAdmin();
+      } else {
+        showToast('Failed to delete category: ' + (result.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      showToast('Network error: ' + error.message, 'error');
+    }
   };
 
   const dashboardStats = useMemo(() => {
@@ -1956,6 +2013,27 @@ const AdminPanel = () => {
         </div>
       )}
 
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-24 right-4 md:top-8 md:right-8 px-6 py-4 rounded-lg shadow-lg z-[100] flex items-center space-x-3 animate-slide-in ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.type === 'success' ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          <div>
+            <h4 className="font-medium">{toast.type === 'success' ? 'Success' : 'Error'}</h4>
+            <p className="text-sm opacity-90">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-0 backdrop-blur-sm">
         <div
           className="mx-auto flex min-h-screen max-w-7xl min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-white shadow-2xl md:h-full md:min-h-0 md:flex-row md:rounded-none"
@@ -2099,13 +2177,9 @@ const AdminPanel = () => {
                 <span className="md:hidden">Save</span>
               </button>
               <div className="hidden items-center gap-2 md:flex">
-                <button type="button" onClick={() => {
-                  if (confirm('Reset website content? Rental products and inventory will not be affected.')) {
-                    resetWebsiteContent();
-                  }
-                }} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
+                <button type="button" onClick={refreshData} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
                   <RefreshCw className="h-4 w-4" />
-                  Reset
+                  Refresh
                 </button>
                 <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
                   <Shield className="h-4 w-4" />
