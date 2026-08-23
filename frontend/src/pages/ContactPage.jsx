@@ -173,7 +173,7 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-700">Location</p>
-                    <p className="text-lg font-semibold text-navy">Monrovia, Liberia</p>
+                    <p className="text-lg font-semibold text-navy">GSA Road, Paynesville City, Montserrado County - Liberia</p>
                   </div>
                 </div>
               </div>
@@ -182,14 +182,14 @@ const ContactPage = () => {
             {/* Map */}
             <div className="rounded-3xl overflow-hidden shadow-sm border border-slate-200">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127478.7349266496!2d-10.8!3d6.3!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x104b5e5e5e5e5e5e5%3A0x5e5e5e5e5e5e5e5e!2sMonrovia%2C%20Liberia!5e0!3m2!1sen!2sus!4v1234567890"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127478.7349266496!2d-10.75!3d6.25!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x104b5e5e5e5e5e5e5%3A0x5e5e5e5e5e5e5e5e!2sPaynesville%20City%2C%20Montserrado%20County%2C%20Liberia!5e0!3m2!1sen!2sus!4v1234567890"
                 width="100%"
                 height="300"
                 style={{ border: 0 }}
                 allowFullScreen=""
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Map of Monrovia, Liberia"
+                title="Map of Paynesville City, Montserrado County, Liberia"
               />
             </div>
           </div>
