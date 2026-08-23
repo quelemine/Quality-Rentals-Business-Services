@@ -12,10 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 class Database {
-    private $host = 'localhost';
-    private $db_name = 'quality_rentals';
-    private $username = 'root';
-    private $password = '';
+    private $host = getenv('DB_HOST') ?: 'localhost';
+    private $db_name = getenv('DB_NAME') ?: 'quality_rentals';
+    private $username = getenv('DB_USER') ?: 'root';
+    private $password = getenv('DB_PASSWORD') ?: '';
     public $conn;
 
     public function getConnection() {
