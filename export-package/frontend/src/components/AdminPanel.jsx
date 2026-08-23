@@ -1,0 +1,1281 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as ImageIcon, Package, FileText, Globe, Menu, CreditCard, BarChart3 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { useSiteContent } from '../context/SiteContentContext';
+
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = '1234';
+
+const imageToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const tabs = [
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { id: 'general', label: 'General', icon: LayoutGrid },
+  { id: 'hero', label: 'Hero', icon: FileText },
+  { id: 'about', label: 'About', icon: FileText },
+  { id: 'events', label: 'Events', icon: Globe },
+  { id: 'gallery', label: 'Gallery', icon: ImageIcon },
+  { id: 'rentals', label: 'Rentals', icon: Package },
+  { id: 'social', label: 'Footer', icon: Globe },
+  { id: 'payments', label: 'Payments', icon: CreditCard },
+];
+
+const AdminPanel = () => {
+  const { siteContent, setSiteContent, resetContent } = useSiteContent();
+  const location = useLocation();
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('admin') === '1' || window.location.hash === '#/admin';
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('qrs-admin-session') === 'true';
+  });
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [modal, setModal] = useState({ open: false, type: null, mode: 'create', item: null });
+  const [touchStartX, setTouchStartX] = useState(null);
+  const [isDirectLinkAccess, setIsDirectLinkAccess] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('admin') === '1';
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isAdminRoute = location.pathname === '/admin' || window.location.hash === '#/admin';
+    const shouldOpen = isAdminRoute || params.get('admin') === '1' || sessionStorage.getItem('qrs-admin-session') === 'true';
+    setIsDirectLinkAccess(params.get('admin') === '1' || isAdminRoute);
+    setIsOpen(shouldOpen);
+  }, [location.pathname]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      sessionStorage.setItem('qrs-admin-session', 'true');
+      setIsLoggedIn(true);
+      setError('');
+      setIsOpen(true);
+      return;
+    }
+
+    setError('Invalid username or password.');
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('qrs-admin-session');
+    setIsLoggedIn(false);
+    setIsOpen(false);
+    setModal({ open: false, type: null, mode: 'create', item: null });
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('admin');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const closePanel = () => {
+    if (isDirectLinkAccess && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('admin');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    setIsOpen(false);
+  };
+
+  const updateBusinessField = (field, value) => {
+    setSiteContent({
+      ...siteContent,
+      business: {
+        ...siteContent.business,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateHeroField = (field, value) => {
+    setSiteContent({
+      ...siteContent,
+      hero: {
+        ...siteContent.hero,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateAboutField = (field, value) => {
+    setSiteContent({
+      ...siteContent,
+      about: {
+        ...siteContent.about,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateFooterField = (field, value) => {
+    setSiteContent({
+      ...siteContent,
+      footer: {
+        ...siteContent.footer,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateSocialLink = (platform, value) => {
+    setSiteContent({
+      ...siteContent,
+      footer: {
+        ...siteContent.footer,
+        socials: {
+          ...siteContent.footer.socials,
+          [platform]: value,
+        },
+      },
+    });
+  };
+
+  const handleImageUpload = async (event, targetPath, targetKey) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const base64 = await imageToBase64(file);
+
+    if (targetPath === 'business') {
+      updateBusinessField(targetKey, base64);
+      return;
+    }
+
+    if (targetPath === 'hero') {
+      updateHeroField(targetKey, base64);
+      return;
+    }
+
+    if (targetPath === 'gallery') {
+      const updatedGallery = siteContent.gallery.map((item) =>
+        item.id === Number(targetKey) ? { ...item, image_url: base64 } : item
+      );
+      setSiteContent({ ...siteContent, gallery: updatedGallery });
+    }
+
+    if (targetPath === 'products') {
+      const updatedProducts = siteContent.catalog.products.map((item) =>
+        item.id === Number(targetKey) ? { ...item, image_url: base64 } : item
+      );
+      setSiteContent({
+        ...siteContent,
+        catalog: { ...siteContent.catalog, products: updatedProducts },
+      });
+    }
+  };
+
+  const handleModalImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const base64 = await imageToBase64(file);
+    setModal({
+      ...modal,
+      item: { ...modal.item, image_url: base64 },
+    });
+  };
+
+  const addEvent = () => {
+    const newEvent = {
+      id: Date.now(),
+      name: 'New Event',
+      description: 'Add a short description',
+    };
+
+    setSiteContent({
+      ...siteContent,
+      events: [...siteContent.events, newEvent],
+    });
+  };
+
+  const openModal = (type, mode = 'create', item = null) => {
+    const baseItem = item || {
+      id: Date.now(),
+      name: 'New Event',
+      description: 'Add a short description',
+      title: 'New Gallery Item',
+      tag: 'Featured',
+      image_url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=1200',
+      category_id: siteContent.catalog.categories[0]?.id || 1,
+      price: 'From $0',
+      client: 'New Client',
+      amount: 0,
+      method: 'Cash',
+      status: 'Pending',
+      date: new Date().toISOString().slice(0, 10),
+      notes: 'Payment recorded from the dashboard',
+    };
+
+    setModal({ open: true, type, mode, item: { ...baseItem, ...(item || {}) } });
+  };
+
+  const closeModal = () => setModal({ open: false, type: null, mode: 'create', item: null });
+
+  const saveModalContent = () => {
+    if (!modal.type || !modal.item) return;
+
+    switch (modal.type) {
+      case 'event': {
+        if (modal.mode === 'create') {
+          setSiteContent({ ...siteContent, events: [...siteContent.events, { ...modal.item, id: Date.now() }] });
+        } else {
+          setSiteContent({
+            ...siteContent,
+            events: siteContent.events.map((event) =>
+              event.id === modal.item.id ? { ...event, ...modal.item } : event
+            ),
+          });
+        }
+        break;
+      }
+      case 'gallery': {
+        if (modal.mode === 'create') {
+          setSiteContent({ ...siteContent, gallery: [...siteContent.gallery, { ...modal.item, id: Date.now() }] });
+        } else {
+          setSiteContent({
+            ...siteContent,
+            gallery: siteContent.gallery.map((item) =>
+              item.id === modal.item.id ? { ...item, ...modal.item } : item
+            ),
+          });
+        }
+        break;
+      }
+      case 'product': {
+        if (modal.mode === 'create') {
+          setSiteContent({
+            ...siteContent,
+            catalog: {
+              ...siteContent.catalog,
+              products: [...siteContent.catalog.products, { ...modal.item, id: Date.now() }],
+            },
+          });
+        } else {
+          setSiteContent({
+            ...siteContent,
+            catalog: {
+              ...siteContent.catalog,
+              products: siteContent.catalog.products.map((product) =>
+                product.id === modal.item.id ? { ...product, ...modal.item } : product
+              ),
+            },
+          });
+        }
+        break;
+      }
+      case 'category': {
+        if (modal.mode === 'create') {
+          setSiteContent({
+            ...siteContent,
+            catalog: {
+              ...siteContent.catalog,
+              categories: [...siteContent.catalog.categories, { ...modal.item, id: Date.now() }],
+            },
+          });
+        } else {
+          setSiteContent({
+            ...siteContent,
+            catalog: {
+              ...siteContent.catalog,
+              categories: siteContent.catalog.categories.map((category) =>
+                category.id === modal.item.id ? { ...category, ...modal.item } : category
+              ),
+            },
+          });
+        }
+        break;
+      }
+      case 'payment': {
+        if (modal.mode === 'create') {
+          setSiteContent({
+            ...siteContent,
+            payments: [...(siteContent.payments || []), { ...modal.item, id: Date.now() }],
+          });
+        } else {
+          setSiteContent({
+            ...siteContent,
+            payments: (siteContent.payments || []).map((record) =>
+              record.id === modal.item.id ? { ...record, ...modal.item } : record
+            ),
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    closeModal();
+  };
+
+  const addPaymentRecord = () => {
+    const newRecord = {
+      id: Date.now(),
+      client: 'New Client',
+      amount: 0,
+      method: 'Cash',
+      status: 'Pending',
+      date: new Date().toISOString().slice(0, 10),
+      notes: 'Payment recorded from the dashboard',
+    };
+
+    setSiteContent({
+      ...siteContent,
+      payments: [...(siteContent.payments || []), newRecord],
+    });
+  };
+
+  const updatePaymentRecord = (id, field, value) => {
+    const updatedPayments = (siteContent.payments || []).map((record) =>
+      record.id === id ? { ...record, [field]: value } : record
+    );
+
+    setSiteContent({
+      ...siteContent,
+      payments: updatedPayments,
+    });
+  };
+
+  const deletePaymentRecord = (id) => {
+    setSiteContent({
+      ...siteContent,
+      payments: (siteContent.payments || []).filter((record) => record.id !== id),
+    });
+  };
+
+  const updateEvent = (id, field, value) => {
+    const updated = siteContent.events.map((event) =>
+      event.id === id ? { ...event, [field]: value } : event
+    );
+    setSiteContent({ ...siteContent, events: updated });
+  };
+
+  const deleteEvent = (id) => {
+    setSiteContent({
+      ...siteContent,
+      events: siteContent.events.filter((event) => event.id !== id),
+    });
+  };
+
+  const addGalleryItem = () => {
+    const newItem = {
+      id: Date.now(),
+      title: 'New Gallery Item',
+      tag: 'Featured',
+      image_url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=1200',
+    };
+
+    setSiteContent({
+      ...siteContent,
+      gallery: [...siteContent.gallery, newItem],
+    });
+  };
+
+  const updateGalleryItem = (id, field, value) => {
+    const updatedGallery = siteContent.gallery.map((item) =>
+      item.id === id ? { ...item, [field]: value } : item
+    );
+    setSiteContent({ ...siteContent, gallery: updatedGallery });
+  };
+
+  const deleteGalleryItem = (id) => {
+    setSiteContent({
+      ...siteContent,
+      gallery: siteContent.gallery.filter((item) => item.id !== id),
+    });
+  };
+
+  const addProduct = () => {
+    const newProduct = {
+      id: Date.now(),
+      category_id: siteContent.catalog.categories[0]?.id || 1,
+      name: 'New Rental Item',
+      description: 'Describe this rental item',
+      price: 'From $0',
+      image_url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200',
+    };
+
+    setSiteContent({
+      ...siteContent,
+      catalog: {
+        ...siteContent.catalog,
+        products: [...siteContent.catalog.products, newProduct],
+      },
+    });
+  };
+
+  const updateProduct = (id, field, value) => {
+    const updatedProducts = siteContent.catalog.products.map((product) =>
+      product.id === id ? { ...product, [field]: value } : product
+    );
+    setSiteContent({
+      ...siteContent,
+      catalog: { ...siteContent.catalog, products: updatedProducts },
+    });
+  };
+
+  const deleteProduct = (id) => {
+    setSiteContent({
+      ...siteContent,
+      catalog: {
+        ...siteContent.catalog,
+        products: siteContent.catalog.products.filter((product) => product.id !== id),
+      },
+    });
+  };
+
+  const addCategory = () => {
+    const newCategory = {
+      id: Date.now(),
+      name: 'New Category',
+      icon_name: 'LayersIcon',
+    };
+
+    setSiteContent({
+      ...siteContent,
+      catalog: {
+        ...siteContent.catalog,
+        categories: [...siteContent.catalog.categories, newCategory],
+      },
+    });
+  };
+
+  const updateCategory = (id, field, value) => {
+    const updatedCategories = siteContent.catalog.categories.map((category) =>
+      category.id === id ? { ...category, [field]: value } : category
+    );
+    setSiteContent({
+      ...siteContent,
+      catalog: { ...siteContent.catalog, categories: updatedCategories },
+    });
+  };
+
+  const deleteCategory = (id) => {
+    const remainingCategories = siteContent.catalog.categories.filter((category) => category.id !== id);
+    const remainingProducts = siteContent.catalog.products.filter((product) => product.category_id !== id);
+
+    setSiteContent({
+      ...siteContent,
+      catalog: {
+        ...siteContent.catalog,
+        categories: remainingCategories,
+        products: remainingProducts,
+      },
+    });
+  };
+
+  const dashboardStats = useMemo(() => {
+    const totalRevenue = (siteContent.payments || []).reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const paidCount = (siteContent.payments || []).filter((record) => record.status === 'Paid').length;
+    const pendingCount = (siteContent.payments || []).filter((record) => record.status === 'Pending').length;
+
+    return [
+      { label: 'Revenue', value: `$${totalRevenue.toLocaleString()}`, detail: `${paidCount} paid` },
+      { label: 'Events', value: String(siteContent.events?.length || 0), detail: 'active listings' },
+      { label: 'Gallery', value: String(siteContent.gallery?.length || 0), detail: 'images ready' },
+      { label: 'Rentals', value: String(siteContent.catalog?.products?.length || 0), detail: `${pendingCount} pending payments` },
+    ];
+  }, [siteContent]);
+
+  const tabIndexById = useMemo(
+    () => tabs.reduce((acc, tab, index) => ({ ...acc, [tab.id]: index }), {}),
+    []
+  );
+
+  const handleTouchStart = (event) => {
+    setTouchStartX(event.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (event) => {
+    if (touchStartX === null) return;
+
+    const deltaX = event.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(deltaX) < 60) {
+      setTouchStartX(null);
+      return;
+    }
+
+    const currentIndex = tabIndexById[activeTab] ?? 0;
+    const nextIndex = deltaX < 0 ? Math.min(currentIndex + 1, tabs.length - 1) : Math.max(currentIndex - 1, 0);
+    setActiveTab(tabs[nextIndex].id);
+    setTouchStartX(null);
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {dashboardStats.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{stat.label}</p>
+                  <h4 className="mt-3 text-2xl font-bold text-navy sm:text-3xl">{stat.value}</h4>
+                  <p className="mt-2 text-sm text-slate-600">{stat.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-slate-800">Events</h4>
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Table</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-600">
+                        <th className="py-2 pr-4">Name</th>
+                        <th className="py-2">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {siteContent.events.map((event) => (
+                        <tr key={event.id} className="border-b border-slate-100">
+                          <td className="py-2 pr-4 font-medium text-slate-800">{event.name}</td>
+                          <td className="py-2 text-slate-600">{event.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-slate-800">Gallery</h4>
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Table</span>
+                </div>
+                <div className="overflow-x-auto admin-scroll">
+                  <table className="min-w-[420px] w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-600">
+                        <th className="py-2 pr-4">Title</th>
+                        <th className="py-2 pr-4">Tag</th>
+                        <th className="py-2">Image</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {siteContent.gallery.map((item) => (
+                        <tr key={item.id} className="border-b border-slate-100">
+                          <td className="py-2 pr-4 font-medium text-slate-800">{item.title}</td>
+                          <td className="py-2 pr-4 text-slate-600">{item.tag}</td>
+                          <td className="py-2">
+                            <img src={item.image_url} alt={item.title} className="h-10 w-16 rounded object-cover" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-slate-800">Rentals</h4>
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Table</span>
+                </div>
+                <div className="overflow-x-auto admin-scroll">
+                  <table className="min-w-[420px] w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-600">
+                        <th className="py-2 pr-4">Item</th>
+                        <th className="py-2 pr-4">Category</th>
+                        <th className="py-2">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {siteContent.catalog.products.map((product) => {
+                        const category = siteContent.catalog.categories.find((entry) => entry.id === product.category_id);
+                        return (
+                          <tr key={product.id} className="border-b border-slate-100">
+                            <td className="py-2 pr-4 font-medium text-slate-800">{product.name}</td>
+                            <td className="py-2 pr-4 text-slate-600">{category?.name || 'General'}</td>
+                            <td className="py-2 text-slate-600">{product.price}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-slate-800">Hero</h4>
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Table</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-600">
+                        <th className="py-2 pr-4">Badge</th>
+                        <th className="py-2 pr-4">Title</th>
+                        <th className="py-2">WhatsApp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-slate-100">
+                        <td className="py-2 pr-4 font-medium text-slate-800">{siteContent.hero.badge}</td>
+                        <td className="py-2 pr-4 text-slate-600">{siteContent.hero.title}</td>
+                        <td className="py-2 text-slate-600">{siteContent.hero.whatsappLink ? 'Linked' : 'Not Set'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'general':
+        return (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Business Name</label>
+              <input value={siteContent.business.companyName} onChange={(e) => updateBusinessField('companyName', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tagline</label>
+              <input value={siteContent.business.tagline} onChange={(e) => updateBusinessField('tagline', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Phone</label>
+              <input value={siteContent.business.phone} onChange={(e) => updateBusinessField('phone', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <input value={siteContent.business.email} onChange={(e) => updateBusinessField('email', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Location</label>
+              <input value={siteContent.business.location} onChange={(e) => updateBusinessField('location', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Logo</label>
+              <div className="flex items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3">
+                <img src={siteContent.business.logo} alt="Logo preview" className="h-16 w-16 rounded-full object-cover" />
+                <div className="flex-1">
+                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'business', 'logo')} />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'hero':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Badge</label>
+              <input value={siteContent.hero.badge} onChange={(e) => updateHeroField('badge', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Main Title</label>
+              <input value={siteContent.hero.title} onChange={(e) => updateHeroField('title', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <textarea value={siteContent.hero.description} onChange={(e) => updateHeroField('description', e.target.value)} rows="4" className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">WhatsApp Link</label>
+              <input value={siteContent.hero.whatsappLink} onChange={(e) => updateHeroField('whatsappLink', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Background Banner URL</label>
+              <input value={siteContent.hero.backgroundImage} onChange={(e) => updateHeroField('backgroundImage', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Background Banner Upload</label>
+              <div className="flex items-center gap-4 rounded-lg border border-dashed border-slate-300 p-3">
+                <img src={siteContent.hero.backgroundImage} alt="Hero preview" className="h-24 w-32 rounded-lg object-cover" />
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'hero', 'backgroundImage')} />
+              </div>
+            </div>
+          </div>
+        );
+      case 'about':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">About Heading</label>
+              <input value={siteContent.about.heading} onChange={(e) => updateAboutField('heading', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">About Description</label>
+              <textarea value={siteContent.about.description} onChange={(e) => updateAboutField('description', e.target.value)} rows="4" className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mission</label>
+              <textarea value={siteContent.about.mission} onChange={(e) => updateAboutField('mission', e.target.value)} rows="3" className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Vision</label>
+              <textarea value={siteContent.about.vision} onChange={(e) => updateAboutField('vision', e.target.value)} rows="3" className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+          </div>
+        );
+      case 'events':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-slate-800">Events</h4>
+              <button type="button" onClick={() => openModal('event', 'create')} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white">
+                <Plus className="h-4 w-4" />
+                Add Event
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-3">Name</th>
+                    <th className="px-3 py-3">Description</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {siteContent.events.map((event) => (
+                    <tr key={event.id} className="border-t border-slate-200">
+                      <td className="px-3 py-3 font-medium text-slate-800">{event.name}</td>
+                      <td className="px-3 py-3 text-slate-600">{event.description}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => openModal('event', 'edit', event)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">Edit</button>
+                          <button type="button" onClick={() => deleteEvent(event.id)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      case 'gallery':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-slate-800">Gallery</h4>
+              <button type="button" onClick={() => openModal('gallery', 'create')} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white">
+                <Plus className="h-4 w-4" />
+                Add Image
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-3">Title</th>
+                    <th className="px-3 py-3">Tag</th>
+                    <th className="px-3 py-3">Image</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {siteContent.gallery.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-200">
+                      <td className="px-3 py-3 font-medium text-slate-800">{item.title}</td>
+                      <td className="px-3 py-3 text-slate-600">{item.tag}</td>
+                      <td className="px-3 py-3">
+                        <img src={item.image_url} alt={item.title} className="h-10 w-16 rounded object-cover" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => openModal('gallery', 'edit', item)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">Edit</button>
+                          <button type="button" onClick={() => deleteGalleryItem(item.id)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      case 'rentals':
+        return (
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-slate-700">Categories</h4>
+                <button type="button" onClick={() => openModal('category', 'create')} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white">
+                  <Plus className="h-4 w-4" />
+                  Add Category
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="px-3 py-3">Category</th>
+                      <th className="px-3 py-3">Icon</th>
+                      <th className="px-3 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {siteContent.catalog.categories.map((category) => (
+                      <tr key={category.id} className="border-t border-slate-200">
+                        <td className="px-3 py-3 font-medium text-slate-800">{category.name}</td>
+                        <td className="px-3 py-3 text-slate-600">{category.icon_name}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => openModal('category', 'edit', category)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">Edit</button>
+                            <button type="button" onClick={() => deleteCategory(category.id)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-slate-700">Products</h4>
+                <button type="button" onClick={() => openModal('product', 'create')} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white">
+                  <Plus className="h-4 w-4" />
+                  Add Rental
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="px-3 py-3">Name</th>
+                      <th className="px-3 py-3">Category</th>
+                      <th className="px-3 py-3">Price</th>
+                      <th className="px-3 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {siteContent.catalog.products.map((product) => {
+                      const category = siteContent.catalog.categories.find((entry) => entry.id === product.category_id);
+                      return (
+                        <tr key={product.id} className="border-t border-slate-200">
+                          <td className="px-3 py-3 font-medium text-slate-800">{product.name}</td>
+                          <td className="px-3 py-3 text-slate-600">{category?.name || 'General'}</td>
+                          <td className="px-3 py-3 text-slate-600">{product.price}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => openModal('product', 'edit', product)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">Edit</button>
+                              <button type="button" onClick={() => deleteProduct(product.id)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      case 'social':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Footer description</label>
+              <textarea value={siteContent.footer.description} onChange={(e) => updateFooterField('description', e.target.value)} rows="3" className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Facebook link</label>
+              <input value={siteContent.footer.socials.facebook} onChange={(e) => updateSocialLink('facebook', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Instagram link</label>
+              <input value={siteContent.footer.socials.instagram} onChange={(e) => updateSocialLink('instagram', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Twitter/X link</label>
+              <input value={siteContent.footer.socials.twitter} onChange={(e) => updateSocialLink('twitter', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            </div>
+          </div>
+        );
+      case 'payments':
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-slate-800">Business Payment Records</h4>
+              <button type="button" onClick={() => openModal('payment', 'create')} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white">
+                <Plus className="h-4 w-4" />
+                Record Payment
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-3">Client</th>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3">Method</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Notes</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(siteContent.payments || []).map((record) => (
+                    <tr key={record.id} className="border-t border-slate-200 align-top">
+                      <td className="px-3 py-3 font-medium text-slate-800">{record.client}</td>
+                      <td className="px-3 py-3 text-slate-600">{record.date}</td>
+                      <td className="px-3 py-3 text-slate-600">${Number(record.amount || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-slate-600">{record.method}</td>
+                      <td className="px-3 py-3 text-slate-600">{record.status}</td>
+                      <td className="px-3 py-3 text-slate-600">{record.notes}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => openModal('payment', 'edit', record)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">Edit</button>
+                          <button type="button" onClick={() => deletePaymentRecord(record.id)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!isOpen && !isLoggedIn) {
+    return null;
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-gold">Admin Login</p>
+              <h3 className="mt-1 text-2xl font-bold text-navy">Website Control</h3>
+            </div>
+            <button type="button" onClick={closePanel} className="rounded-full p-2 hover:bg-slate-100">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Username</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none ring-0 focus:border-gold" placeholder="admin" />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none ring-0 focus:border-gold" placeholder="1234" />
+            </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3 font-semibold text-white hover:bg-navy">
+              <LogIn className="h-4 w-4" />
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {modal.open && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm md:items-center md:p-4">
+          <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl md:max-h-[85vh] md:w-full md:max-w-2xl md:rounded-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">
+                {modal.mode === 'create' ? 'Create' : 'Edit'} {modal.type}
+              </h3>
+              <button type="button" onClick={closeModal} className="rounded-full p-2 hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pb-2">
+              {modal.type === 'event' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Event Name</label>
+                    <input value={modal.item?.name || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, name: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Description</label>
+                    <textarea value={modal.item?.description || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, description: e.target.value } })} rows="4" className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                </>
+              )}
+
+              {modal.type === 'gallery' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Title</label>
+                    <input value={modal.item?.title || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, title: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tag</label>
+                    <input value={modal.item?.tag || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, tag: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Image URL</label>
+                    <input value={modal.item?.image_url || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, image_url: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Upload Image</label>
+                    <input type="file" accept="image/*" onChange={handleModalImageUpload} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                </>
+              )}
+
+              {modal.type === 'category' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Category Name</label>
+                    <input value={modal.item?.name || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, name: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Icon Name</label>
+                    <input value={modal.item?.icon_name || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, icon_name: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                </>
+              )}
+
+              {modal.type === 'product' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Name</label>
+                    <input value={modal.item?.name || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, name: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Price</label>
+                    <input value={modal.item?.price || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, price: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Description</label>
+                    <textarea value={modal.item?.description || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, description: e.target.value } })} rows="4" className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Category</label>
+                    <select value={modal.item?.category_id || siteContent.catalog.categories[0]?.id || 1} onChange={(e) => setModal({ ...modal, item: { ...modal.item, category_id: Number(e.target.value) } })} className="w-full rounded-lg border border-slate-200 p-2.5">
+                      {siteContent.catalog.categories.map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Image URL</label>
+                    <input value={modal.item?.image_url || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, image_url: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Upload Image</label>
+                    <input type="file" accept="image/*" onChange={handleModalImageUpload} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                  </div>
+                </>
+              )}
+
+              {modal.type === 'payment' && (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Client</label>
+                      <input value={modal.item?.client || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, client: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Date</label>
+                      <input type="date" value={modal.item?.date || new Date().toISOString().slice(0, 10)} onChange={(e) => setModal({ ...modal, item: { ...modal.item, date: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Amount</label>
+                      <input type="number" value={modal.item?.amount || 0} onChange={(e) => setModal({ ...modal, item: { ...modal.item, amount: Number(e.target.value) } })} className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Method</label>
+                      <select value={modal.item?.method || 'Cash'} onChange={(e) => setModal({ ...modal, item: { ...modal.item, method: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5">
+                        <option>Cash</option>
+                        <option>Bank Transfer</option>
+                        <option>Mobile Money</option>
+                        <option>Card</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium">Status</label>
+                      <select value={modal.item?.status || 'Pending'} onChange={(e) => setModal({ ...modal, item: { ...modal.item, status: e.target.value } })} className="w-full rounded-lg border border-slate-200 p-2.5">
+                        <option>Paid</option>
+                        <option>Pending</option>
+                        <option>Overdue</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium">Notes</label>
+                      <textarea value={modal.item?.notes || ''} onChange={(e) => setModal({ ...modal, item: { ...modal.item, notes: e.target.value } })} rows="3" className="w-full rounded-lg border border-slate-200 p-2.5" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={closeModal} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-100">Cancel</button>
+              <button type="button" onClick={saveModalContent} className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-navy">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-0 backdrop-blur-sm">
+        <div
+          className="mx-auto flex min-h-screen max-w-7xl min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-white shadow-2xl md:h-full md:min-h-0 md:flex-row md:rounded-none"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+        <aside className="hidden w-72 flex-col border-r border-slate-200 bg-slate-950 text-white md:flex">
+          <div className="border-b border-slate-700 p-5">
+            <p className="text-xs uppercase tracking-[0.3em] text-gold">Control</p>
+            <h3 className="mt-2 text-xl font-bold">Admin Panel</h3>
+          </div>
+
+          <nav className="admin-scroll flex-1 space-y-2 overflow-y-auto p-4">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(id);
+                  setMobileNavOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+                  activeTab === id ? 'bg-gold text-slate-900' : 'text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="border-t border-slate-700 p-4">
+            <button type="button" onClick={() => resetContent()} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              <RefreshCw className="h-4 w-4" />
+              Reset Content
+            </button>
+            <button type="button" onClick={handleLogout} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-3 py-2 text-sm font-medium text-slate-900 hover:bg-yellow-400">
+              <Shield className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
+        </aside>
+
+        <main className="flex min-h-0 flex-1 flex-col bg-slate-50">
+          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setMobileNavOpen((prev) => !prev)} className="rounded-xl border border-slate-200 p-2 md:hidden">
+                <Menu className="h-5 w-5 text-slate-700" />
+              </button>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-gold">Dashboard</p>
+                <h3 className="text-lg font-bold text-slate-900 md:text-2xl">Site Content Manager</h3>
+              </div>
+            </div>
+
+            <div className="hidden items-center gap-2 md:flex">
+              <button type="button" onClick={() => resetContent()} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-100">
+                <RefreshCw className="h-4 w-4" />
+                Reset
+              </button>
+              <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                <Shield className="h-4 w-4" />
+                Logout
+              </button>
+              <button type="button" onClick={closePanel} className="flex items-center gap-2 rounded-lg bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-gold">
+                <Save className="h-4 w-4" />
+                Save & Close
+              </button>
+            </div>
+          </header>
+
+          {mobileNavOpen && (
+            <div className="border-b border-slate-200 bg-slate-900 p-3 md:hidden">
+              <div className="admin-scroll flex snap-x gap-2 overflow-x-auto pb-1">
+                {tabs.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(id);
+                      setMobileNavOpen(false);
+                    }}
+                    className={`snap-start shrink-0 rounded-xl px-3 py-2 text-left text-sm ${
+                      activeTab === id ? 'bg-gold text-slate-900' : 'bg-slate-800 text-white'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!mobileNavOpen && (
+            <div className="border-b border-slate-200 bg-slate-100 p-2 md:hidden">
+              <div className="admin-scroll flex snap-x gap-2 overflow-x-auto pb-1">
+                {tabs.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveTab(id)}
+                    className={`snap-start shrink-0 rounded-xl px-3 py-2 text-[11px] font-medium ${
+                      activeTab === id ? 'bg-gold text-slate-900' : 'bg-white text-slate-700 shadow-sm'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 md:p-6">
+            {renderContent()}
+          </div>
+        </main>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default AdminPanel;
