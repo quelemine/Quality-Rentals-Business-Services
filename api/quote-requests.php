@@ -42,9 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Insert quote request
             $query = "INSERT INTO quote_requests 
-                      (first_name, last_name, email, phone, event_date, duration_days, delivery_type, delivery_address, special_notes, status, contact_method) 
+                      (first_name, last_name, email, phone, event_date, duration_days, delivery_type, delivery_address, special_notes, status, contact_method, estimated_total) 
                       VALUES 
-                      (:first_name, :last_name, :email, :phone, :event_date, :duration_days, :delivery_type, :delivery_address, :special_notes, 'Pending', :contact_method)";
+                      (:first_name, :last_name, :email, :phone, :event_date, :duration_days, :delivery_type, :delivery_address, :special_notes, 'Pending', :contact_method, :estimated_total)";
             
             $stmt = $db->prepare($query);
             
@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $delivery_address = !empty($data->delivery_address) ? htmlspecialchars(strip_tags($data->delivery_address)) : null;
             $special_notes = !empty($data->special_notes) ? htmlspecialchars(strip_tags($data->special_notes)) : null;
             $contact_method = !empty($data->contact_method) ? htmlspecialchars(strip_tags($data->contact_method)) : 'email';
+            $estimated_total = !empty($data->estimated_total) ? (float)$data->estimated_total : null;
             
             $stmt->bindParam(':first_name', $first_name);
             $stmt->bindParam(':last_name', $last_name);
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':delivery_address', $delivery_address);
             $stmt->bindParam(':special_notes', $special_notes);
             $stmt->bindParam(':contact_method', $contact_method);
+            $stmt->bindParam(':estimated_total', $estimated_total);
             
             if ($stmt->execute()) {
                 $quote_request_id = $db->lastInsertId();
@@ -93,9 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Send notification based on contact method
                 if ($contact_method === 'whatsapp') {
-                    sendWhatsAppNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items);
+                    sendWhatsAppNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items, $estimated_total);
                 } else {
-                    sendEmailNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items);
+                    sendEmailNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items, $estimated_total);
                 }
                 
                 http_response_code(201);
@@ -123,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Email notification function
-function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items) {
+function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
     $to = "paye.susanna@yahoo.com";
     $subject = "New Quote Request - $firstName $lastName";
     
@@ -149,6 +151,12 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
         $message .= "<p><strong>Special Notes:</strong> $specialNotes</p>";
     }
     
+    if ($estimatedTotal !== null) {
+        $message .= "<p><strong>Estimated Total:</strong> $" . number_format($estimatedTotal, 2) . "</p>";
+    } else {
+        $message .= "<p><strong>Estimated Total:</strong> Contact for pricing</p>";
+    }
+    
     $message .= "<h3>Requested Items:</h3><ul>";
     foreach ($items as $item) {
         $message .= "<li>Product ID: {$item->product_id} - Quantity: {$item->quantity}</li>";
@@ -163,7 +171,7 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
 }
 
 // WhatsApp notification function
-function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items) {
+function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
     $whatsappNumber = "14013011958"; // (401) 301-1958 without formatting
     
     $message = "*New Quote Request*\n\n";
@@ -180,6 +188,12 @@ function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventD
     
     if ($specialNotes) {
         $message .= "*Special Notes:* $specialNotes\n";
+    }
+    
+    if ($estimatedTotal !== null) {
+        $message .= "*Estimated Total:* $" . number_format($estimatedTotal, 2) . "\n";
+    } else {
+        $message .= "*Estimated Total:* Contact for pricing\n";
     }
     
     $message .= "\n*Requested Items:*\n";
