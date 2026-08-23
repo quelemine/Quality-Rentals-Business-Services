@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Trash2, Minus, Plus, Calendar, Clock, MapPin, User, Mail, Phone, FileText, Loader2, Check } from 'lucide-react';
 import { useQuote } from '../context/QuoteContext';
 
 const QuoteDrawer = () => {
+  const navigate = useNavigate();
   const {
     isDrawerOpen,
     setIsDrawerOpen,
@@ -122,7 +124,10 @@ const QuoteDrawer = () => {
                 <div className="text-center py-12">
                   <p className="text-gray-500">No items in your quote request</p>
                   <button
-                    onClick={() => setIsDrawerOpen(false)}
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      navigate('/rentals');
+                    }}
                     className="mt-4 text-gold font-medium hover:underline"
                   >
                     Browse Rentals
