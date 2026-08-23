@@ -17,6 +17,7 @@ import RentalsPage from './pages/RentalsPage';
 import GalleryPage from './pages/GalleryPage';
 import EventsPage from './pages/EventsPage';
 import ContactPage from './pages/ContactPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function AppLayout() {
   return (
@@ -46,8 +47,11 @@ function App() {
   return (
     <SiteContentProvider>
       <QuoteProvider>
-        <HashRouter>
-          <AppLayout />
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/*" element={<AppLayout />} />
+          </Routes>
         </HashRouter>
       </QuoteProvider>
     </SiteContentProvider>
