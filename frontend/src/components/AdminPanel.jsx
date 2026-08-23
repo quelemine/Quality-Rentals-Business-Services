@@ -3,9 +3,6 @@ import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as I
 import { useLocation } from 'react-router-dom';
 import { useSiteContent } from '../context/SiteContentContext';
 
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = '1234';
-
 const imageToBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
