@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { submitQuoteRequest } from '../services/api';
 
 const QuoteContext = createContext();
 
@@ -16,6 +17,7 @@ export const QuoteProvider = ({ children }) => {
     deliveryType: 'Self Pickup',
     deliveryAddress: '',
     specialNotes: '',
+    contactMethod: 'email',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -85,6 +87,7 @@ export const QuoteProvider = ({ children }) => {
       deliveryType: 'Self Pickup',
       deliveryAddress: '',
       specialNotes: '',
+      contactMethod: 'email',
     });
     setIsDrawerOpen(false);
   }, []);
@@ -92,7 +95,7 @@ export const QuoteProvider = ({ children }) => {
   const submitQuote = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      const { submitQuoteRequest } = await import('../services/api');
+      console.log('=== Quote Submission Debug ===');
       const quoteData = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -103,19 +106,38 @@ export const QuoteProvider = ({ children }) => {
         delivery_type: formData.deliveryType,
         delivery_address: formData.deliveryType === 'Delivery Required' ? formData.deliveryAddress : null,
         special_notes: formData.specialNotes,
+        contact_method: formData.contactMethod,
         items: quoteItems.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
         })),
       };
+      console.log('Quote Data:', quoteData);
+      console.log('Items:', quoteItems);
 
-      await submitQuoteRequest(quoteData);
+      const response = await submitQuoteRequest(quoteData);
+      console.log('API Response:', response);
+
       resetQuote();
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
     } catch (error) {
-      console.error('Error submitting quote:', error);
-      alert('Failed to submit quote request. Please try again.');
+      console.error('=== Quote Submission Error ===');
+      console.error('Error:', error);
+      console.error('Error Message:', error.message);
+      console.error('Error Response:', error.response);
+      
+      let errorMessage = 'Failed to submit quote request. Please try again.';
+      if (error.response) {
+        try {
+          errorMessage += `\n\nServer response: ${JSON.stringify(error.response.data)}`;
+        } catch (e) {
+          errorMessage += `\n\nServer error occurred`;
+        }
+      } else if (error.message) {
+        errorMessage += `\n\nError: ${error.message}`;
+      }
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
