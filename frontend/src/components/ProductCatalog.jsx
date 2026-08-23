@@ -50,30 +50,6 @@ const ProductCatalog = () => {
   const categories = apiCategories.length > 0 ? apiCategories : siteContent.catalog?.categories || [];
   const products = apiProducts.length > 0 ? apiProducts : siteContent.catalog?.products || [];
 
-  // Temporary debug function to clear localStorage
-  const clearLocalStorageAndReload = () => {
-    console.log('Clearing localStorage and reloading...');
-    localStorage.removeItem('quality-rental-site-content-v1');
-    window.location.reload();
-  };
-
-  // Debug data source
-  console.log('=== ProductCatalog Data Source Debug ===');
-  console.log('Using API data:', apiProducts.length > 0);
-  console.log('Using localStorage fallback:', apiProducts.length === 0);
-  console.log('API products count:', apiProducts.length);
-  console.log('localStorage products count:', siteContent.catalog?.products?.length || 0);
-  console.log('Final products count:', products.length);
-  
-  if (products.length > 0) {
-    const coolers = products.find(p => p.name?.toLowerCase().includes('cooler'));
-    if (coolers) {
-      console.log('Coolers product found:', coolers);
-      console.log('Coolers stock_quantity:', coolers.stock_quantity);
-      console.log('Coolers is_available:', coolers.is_available);
-    }
-  }
-
   const visibleProducts = useMemo(() => {
     if (activeCategory === null) return products;
     return products.filter((product) => product.category_id === activeCategory);
@@ -140,15 +116,9 @@ const ProductCatalog = () => {
           ))}
         </div>
 
-        <div className="text-center mt-12 space-y-4">
+        <div className="text-center mt-12">
           <button className="bg-gold text-white px-8 py-4 rounded-full font-medium hover:bg-navy transition-colors">
             View Full Catalog
-          </button>
-          <button 
-            onClick={clearLocalStorageAndReload}
-            className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-red-600 transition-colors"
-          >
-            Clear Cache & Reload (Debug)
           </button>
         </div>
       </div>

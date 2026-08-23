@@ -1476,9 +1476,21 @@ const AdminPanel = () => {
                 <Shield className="h-4 w-4" />
                 Logout
               </button>
-              <button type="button" onClick={handleSaveAndClose} className="flex items-center gap-2 rounded-lg bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-gold">
+              <button
+                onClick={handleSaveAndClose}
+                className="flex items-center gap-2 bg-gold text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-white hover:text-slate-900 transition-colors"
+              >
                 <Save className="h-4 w-4" />
                 Save & Close
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('quality-rental-site-content-v1');
+                  window.location.reload();
+                }}
+                className="flex items-center gap-2 bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                Clear Cache
               </button>
             </div>
           </header>
