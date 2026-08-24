@@ -133,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Email notification function
 function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
+    global $db;
     $to = "paye.susanna@yahoo.com";
     $subject = "New Quote Request - $firstName $lastName";
     
@@ -166,7 +167,15 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
     
     $message .= "<h3>Requested Items:</h3><ul>";
     foreach ($items as $item) {
-        $message .= "<li>Product ID: {$item->product_id} - Quantity: {$item->quantity}</li>";
+        // Fetch product name from database
+        $productQuery = "SELECT name FROM products WHERE id = :product_id";
+        $productStmt = $db->prepare($productQuery);
+        $productStmt->bindParam(':product_id', $item->product_id);
+        $productStmt->execute();
+        $product = $productStmt->fetch(PDO::FETCH_ASSOC);
+        
+        $productName = $product ? $product['name'] : "Product ID: {$item->product_id}";
+        $message .= "<li>{$productName} - Quantity: {$item->quantity}</li>";
     }
     $message .= "</ul></body></html>";
     
@@ -179,6 +188,7 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
 
 // WhatsApp notification function
 function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
+    global $db;
     $whatsappNumber = "14013011958"; // USA phone number (401) 301-1958
     
     $message = "*New Quote Request*\n\n";
@@ -205,7 +215,15 @@ function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventD
     
     $message .= "\n*Requested Items:*\n";
     foreach ($items as $item) {
-        $message .= "- Product ID: {$item->product_id} - Quantity: {$item->quantity}\n";
+        // Fetch product name from database
+        $productQuery = "SELECT name FROM products WHERE id = :product_id";
+        $productStmt = $db->prepare($productQuery);
+        $productStmt->bindParam(':product_id', $item->product_id);
+        $productStmt->execute();
+        $product = $productStmt->fetch(PDO::FETCH_ASSOC);
+        
+        $productName = $product ? $product['name'] : "Product ID: {$item->product_id}";
+        $message .= "- {$productName} - Quantity: {$item->quantity}\n";
     }
     
     $encodedMessage = urlencode($message);
