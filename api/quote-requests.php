@@ -94,17 +94,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->commit();
                 
                 // Send notification based on contact method
+                $whatsappUrl = null;
                 if ($contact_method === 'whatsapp') {
-                    sendWhatsAppNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items, $estimated_total);
+                    $whatsappUrl = sendWhatsAppNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items, $estimated_total);
                 } else {
                     sendEmailNotification($first_name, $last_name, $email, $phone, $event_date, $duration_days, $delivery_type, $delivery_address, $special_notes, $data->items, $estimated_total);
                 }
                 
                 http_response_code(201);
-                echo json_encode(array(
+                $response = array(
                     "message" => "Quote request submitted successfully.",
                     "quote_request_id" => $quote_request_id
-                ));
+                );
+                
+                if ($whatsappUrl) {
+                    $response["whatsapp_url"] = $whatsappUrl;
+                }
+                
+                echo json_encode($response);
             } else {
                 $db->rollBack();
                 http_response_code(503);
@@ -172,7 +179,7 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
 
 // WhatsApp notification function
 function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
-    $whatsappNumber = "14013011958"; // (401) 301-1958 without formatting
+    $whatsappNumber = "231776748152"; // Liberia phone number
     
     $message = "*New Quote Request*\n\n";
     $message .= "*Customer:* $firstName $lastName\n";
@@ -204,12 +211,10 @@ function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventD
     $encodedMessage = urlencode($message);
     $whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage";
     
-    // Use cURL to send the WhatsApp message
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $whatsappUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_exec($ch);
-    curl_close($ch);
+    // Log the WhatsApp URL for debugging
+    error_log("WhatsApp URL: " . $whatsappUrl);
+    
+    // Return the URL for the frontend to open
+    return $whatsappUrl;
 }
 ?>
