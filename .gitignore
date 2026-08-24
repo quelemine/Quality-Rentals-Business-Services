@@ -25,3 +25,8 @@ npm-debug.log*
 
 # Database exports
 qualityrentalservices-export/
+qualityrentalservices-export.zip
+
+# Test and debug files
+api/test-*.php
+api/fix-*.php

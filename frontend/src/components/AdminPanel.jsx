@@ -583,31 +583,13 @@ const AdminPanel = () => {
               price_currency: modal.item.price_currency || 'USD'
             };
             
-            console.log('=== Product Save Debug ===');
-            console.log('Mode:', modal.mode);
-            console.log('API URL:', url);
-            console.log('HTTP Method:', method);
-            console.log('Product ID:', modal.item.id);
-            console.log('Product ID type:', typeof modal.item.id);
-            console.log('Payload ID:', payload.id);
-            console.log('Payload ID type:', typeof payload.id);
-            console.log('Product Data:', modal.item);
-            console.log('Image URL:', modal.item.image_url);
-            console.log('Image URL length:', modal.item.image_url?.length || 0);
-            console.log('Payload Image URL:', payload.image_url);
-            console.log('Payload Image URL length:', payload.image_url?.length || 0);
-            
             const response = await fetch(url, {
               method: method,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
             
-            console.log('Response Status:', response.status);
-            console.log('Response OK:', response.ok);
-            
             const result = await response.json();
-            console.log('Response Body:', result);
             
             if (response.ok) {
               showToast('Product saved successfully!');
@@ -616,14 +598,10 @@ const AdminPanel = () => {
               // Refresh products from API
               await fetchProductsForAdmin();
             } else {
-              console.error('=== Save Failed ===');
-              console.error('Error:', result.message || result.error || 'Unknown error');
               showToast('Failed to save product: ' + (result.message || result.error || 'Unknown error'), 'error');
             }
           } catch (error) {
-            console.error('=== Network Error ===');
-            console.error('Error:', error);
-            console.error('Error Message:', error.message);
+            console.error('Error saving product:', error);
             showToast('Network error: ' + error.message, 'error');
           }
         };
