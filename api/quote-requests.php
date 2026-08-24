@@ -179,7 +179,7 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
 
 // WhatsApp notification function
 function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
-    $whatsappNumber = "231776748152"; // Liberia phone number
+    $whatsappNumber = "14013011958"; // USA phone number (401) 301-1958
     
     $message = "*New Quote Request*\n\n";
     $message .= "*Customer:* $firstName $lastName\n";
