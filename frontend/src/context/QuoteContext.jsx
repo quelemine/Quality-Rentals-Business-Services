@@ -143,6 +143,11 @@ export const QuoteProvider = ({ children }) => {
       const response = await submitQuoteRequest(quoteData);
       console.log('API Response:', response);
 
+      // If WhatsApp was selected and URL was returned, open it
+      if (formData.contactMethod === 'whatsapp' && response.whatsapp_url) {
+        window.open(response.whatsapp_url, '_blank');
+      }
+
       resetQuote();
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
