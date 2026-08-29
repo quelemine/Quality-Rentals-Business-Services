@@ -30,7 +30,7 @@ const ProductCard = ({ product }) => {
 
   const handleImageError = (e) => {
     // Set fallback image
-    e.target.src = 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200';
+    e.target.src = 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=400';
   };
 
   const handleImageLoad = () => {
@@ -42,8 +42,10 @@ const ProductCard = ({ product }) => {
       {/* Image */}
       <div className="relative h-48 overflow-hidden">
         <img
-          src={product.image_url || 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200'}
+          src={product.image_url || 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=400'}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           onError={handleImageError}
           onLoad={handleImageLoad}
