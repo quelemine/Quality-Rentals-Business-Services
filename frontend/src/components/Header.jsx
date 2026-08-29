@@ -50,7 +50,6 @@ const Header = () => {
               </a>
             </div>
             <div className="flex items-center gap-3">
-              <LanguageSelector />
               {socials.facebook && (
                 <a href={socials.facebook} target="_blank" rel="noreferrer" className="hover:text-navy transition-colors">
                   <Facebook className="w-4 h-4" />
@@ -136,6 +135,10 @@ const Header = () => {
               >
                 <Search className="w-5 h-5" />
               </button>
+              {/* Language selector — desktop only */}
+              <div className="hidden md:block">
+                <LanguageSelector />
+              </div>
               <div className="flex items-center gap-3 md:hidden">
               <a href={`tel:${business.phone.replace(/\s+/g, '')}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
                 <Phone className="w-5 h-5" />
@@ -166,7 +169,9 @@ const Header = () => {
                   {item.label}
                 </NavLink>
               ))}
-              <LanguageSelector mobile />
+              <div className="pt-2 border-t border-white/10">
+                <LanguageSelector mobile />
+              </div>
               <button
                 onClick={() => setIsDrawerOpen(true)}
                 className="w-full bg-gold text-white px-6 py-3 rounded-full font-medium hover:bg-white hover:text-navy transition-colors"
