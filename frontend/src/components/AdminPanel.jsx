@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as ImageIcon, Package, FileText, Globe, Menu, CreditCard, BarChart3, MessageSquare, Eye, EyeOff, Palette } from 'lucide-react';
+import { Shield, X, LogIn, Save, RefreshCw, Plus, Trash2, LayoutGrid, Image as ImageIcon, Package, FileText, Globe, Menu, CreditCard, BarChart3, MessageSquare, Eye, EyeOff, Palette, Mail, InboxIcon, ClipboardList } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSiteContent } from '../context/SiteContentContext';
 
@@ -14,6 +14,7 @@ const imageToBase64 = (file) =>
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'general', label: 'General', icon: LayoutGrid },
+  { id: 'communications', label: 'Communications', icon: Mail },
   { id: 'hero', label: 'Hero', icon: FileText },
   { id: 'about', label: 'About', icon: FileText },
   { id: 'events', label: 'Events', icon: Globe },
@@ -21,6 +22,8 @@ const tabs = [
   { id: 'rentals', label: 'Rentals', icon: Package },
   { id: 'social', label: 'Footer', icon: Globe },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'quotes', label: 'Quote Requests', icon: ClipboardList },
+  { id: 'contacts', label: 'Contact Messages', icon: InboxIcon },
   { id: 'chatlogs', label: 'Chat Logs', icon: MessageSquare },
   { id: 'colors', label: 'Colors', icon: Palette },
 ];
@@ -61,6 +64,10 @@ const AdminPanel = () => {
   const [modal, setModal] = useState({ open: false, type: null, mode: 'create', item: null });
   const [touchStartX, setTouchStartX] = useState(null);
   const [chatLogs, setChatLogs] = useState([]);
+  const [quoteRequests, setQuoteRequests] = useState([]);
+  const [contactMessages, setContactMessages] = useState([]);
+  const [expandedQuote, setExpandedQuote] = useState(null);
+  const [expandedContact, setExpandedContact] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [isDirectLinkAccess, setIsDirectLinkAccess] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -78,6 +85,18 @@ const AdminPanel = () => {
   useEffect(() => {
     if (activeTab === 'chatlogs' && isLoggedIn) {
       fetchChatLogs();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  useEffect(() => {
+    if (activeTab === 'quotes' && isLoggedIn) {
+      fetchQuoteRequests();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  useEffect(() => {
+    if (activeTab === 'contacts' && isLoggedIn) {
+      fetchContactMessages();
     }
   }, [activeTab, isLoggedIn]);
 
@@ -151,7 +170,7 @@ const AdminPanel = () => {
   const fetchChatLogs = async () => {
     try {
       console.log('Fetching chat logs...');
-      const response = await fetch('http://localhost/qualityrentalservices/api/chat-logs.php');
+      const response = await fetch('/api/chat-logs.php');
       console.log('Response status:', response.status);
       
       if (!response.ok) {
@@ -172,9 +191,95 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchQuoteRequests = async () => {
+    try {
+      const response = await fetch('/api/quote-requests.php');
+      const data = await response.json();
+      if (data.success) {
+        setQuoteRequests(data.quotes);
+      }
+    } catch (error) {
+      console.error('Failed to fetch quote requests:', error);
+    }
+  };
+
+  const updateQuoteStatus = async (id, status) => {
+    try {
+      const response = await fetch('/api/quote-requests.php', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setQuoteRequests(prev => prev.map(q => q.id === id ? { ...q, status } : q));
+        showToast('Status updated successfully!');
+      }
+    } catch (error) {
+      showToast('Failed to update status', 'error');
+    }
+  };
+
+  const deleteQuoteRequest = async (id) => {
+    if (!window.confirm('Delete this quote request?')) return;
+    try {
+      const response = await fetch(`/api/quote-requests.php?id=${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        setQuoteRequests(prev => prev.filter(q => q.id !== id));
+        showToast('Quote request deleted.');
+      }
+    } catch (error) {
+      showToast('Failed to delete quote request', 'error');
+    }
+  };
+
+  const fetchContactMessages = async () => {
+    try {
+      const response = await fetch('/api/contact.php');
+      const data = await response.json();
+      if (data.success) {
+        setContactMessages(data.messages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch contact messages:', error);
+    }
+  };
+
+  const updateContactStatus = async (id, status) => {
+    try {
+      const response = await fetch('/api/contact.php', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setContactMessages(prev => prev.map(m => m.id === id ? { ...m, status } : m));
+        showToast('Status updated.');
+      }
+    } catch (error) {
+      showToast('Failed to update status', 'error');
+    }
+  };
+
+  const deleteContactMessage = async (id) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      const response = await fetch(`/api/contact.php?id=${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        setContactMessages(prev => prev.filter(m => m.id !== id));
+        showToast('Message deleted.');
+      }
+    } catch (error) {
+      showToast('Failed to delete message', 'error');
+    }
+  };
+
   const fetchColorSettings = async () => {
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/color-settings.php');
+      const response = await fetch('/api/color-settings.php');
       const data = await response.json();
       
       if (data.success) {
@@ -193,7 +298,7 @@ const AdminPanel = () => {
   const saveColorSettings = async () => {
     setIsSavingColors(true);
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/color-settings.php', {
+      const response = await fetch('/api/color-settings.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ colors: colorSettings })
@@ -226,7 +331,7 @@ const AdminPanel = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/auth/login.php', {
+      const response = await fetch('/api/auth/login.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -269,7 +374,7 @@ const AdminPanel = () => {
     setForgotMessage('');
 
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/auth/forgot-password.php', {
+      const response = await fetch('/api/auth/forgot-password.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail })
@@ -314,7 +419,7 @@ const AdminPanel = () => {
     setIsSubmittingChangePassword(true);
 
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/auth/change-password.php', {
+      const response = await fetch('/api/auth/change-password.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -383,6 +488,16 @@ const AdminPanel = () => {
       ...siteContent,
       business: {
         ...siteContent.business,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateCommunicationField = (field, value) => {
+    setSiteContent({
+      ...siteContent,
+      communications: {
+        ...(siteContent.communications || {}),
         [field]: value,
       },
     });
@@ -1031,6 +1146,52 @@ const AdminPanel = () => {
             </div>
           </div>
         );
+      case 'communications': {
+        const communications = {
+          whatsappNumber: siteContent.communications?.whatsappNumber || siteContent.business.phone.replace(/\D/g, ''),
+          widgetTitle: siteContent.communications?.widgetTitle || 'Quality Rental Support',
+          availabilityText: siteContent.communications?.availabilityText || 'Online - Typically replies in 5 minutes',
+          whatsappGreeting: siteContent.communications?.whatsappGreeting || 'Hello! How can we help with your event rental needs?',
+        };
+        return (
+          <div className="max-w-3xl space-y-6">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-gold">Customer contact</p>
+              <h3 className="mt-1 text-2xl font-bold text-navy">Email & WhatsApp</h3>
+              <p className="mt-2 text-sm text-slate-600">These details are used across the public website, including the contact page and WhatsApp chat widget.</p>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Public email address</label>
+                <input type="email" value={siteContent.business.email} onChange={(e) => updateBusinessField('email', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Public phone number</label>
+                <input type="tel" value={siteContent.business.phone} onChange={(e) => updateBusinessField('phone', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">WhatsApp number</label>
+                <input type="tel" value={communications.whatsappNumber || ''} onChange={(e) => updateCommunicationField('whatsappNumber', e.target.value)} placeholder="231776748152" className="w-full rounded-lg border border-slate-200 p-2.5" />
+                <p className="text-xs text-slate-500">Include the country code; spaces and symbols are accepted.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">WhatsApp widget title</label>
+                <input value={communications.widgetTitle || ''} onChange={(e) => updateCommunicationField('widgetTitle', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Availability text</label>
+                <input value={communications.availabilityText || ''} onChange={(e) => updateCommunicationField('availabilityText', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">WhatsApp prompt</label>
+                <textarea value={communications.whatsappGreeting || ''} onChange={(e) => updateCommunicationField('whatsappGreeting', e.target.value)} rows="3" className="w-full rounded-lg border border-slate-200 p-2.5" />
+              </div>
+            </div>
+          </div>
+        );
+      }
       case 'hero':
         return (
           <div className="space-y-4">
@@ -1331,6 +1492,175 @@ const AdminPanel = () => {
             </div>
           </div>
         );
+      case 'quotes':
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-gold">Incoming</p>
+                <h3 className="text-2xl font-bold text-navy">Quote Requests</h3>
+              </div>
+              <button type="button" onClick={fetchQuoteRequests} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white hover:bg-navy transition-colors">
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </button>
+            </div>
+
+            {quoteRequests.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">No quote requests yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {quoteRequests.map((q) => (
+                  <div key={q.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => setExpandedQuote(expandedQuote === q.id ? null : q.id)}
+                    >
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          q.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                          q.status === 'Reviewed' ? 'bg-blue-100 text-blue-800' :
+                          q.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>{q.status}</span>
+                        <span className="font-semibold text-slate-800">{q.first_name} {q.last_name}</span>
+                        <span className="text-sm text-slate-500">{q.email}</span>
+                        <span className="text-sm text-slate-500">{q.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-slate-400">
+                        <span>{new Date(q.created_at).toLocaleDateString()}</span>
+                        <span>{expandedQuote === q.id ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+
+                    {expandedQuote === q.id && (
+                      <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50">
+                        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                          <div><span className="font-medium text-slate-700">Event Date:</span> <span className="text-slate-600">{q.event_date}</span></div>
+                          <div><span className="font-medium text-slate-700">Duration:</span> <span className="text-slate-600">{q.duration_days} day(s)</span></div>
+                          <div><span className="font-medium text-slate-700">Delivery:</span> <span className="text-slate-600">{q.delivery_type}</span></div>
+                          <div><span className="font-medium text-slate-700">Contact via:</span> <span className="text-slate-600 capitalize">{q.contact_method}</span></div>
+                          {q.delivery_address && <div className="sm:col-span-2"><span className="font-medium text-slate-700">Address:</span> <span className="text-slate-600">{q.delivery_address}</span></div>}
+                          {q.special_notes && <div className="sm:col-span-2"><span className="font-medium text-slate-700">Notes:</span> <span className="text-slate-600">{q.special_notes}</span></div>}
+                          {q.estimated_total && <div><span className="font-medium text-slate-700">Est. Total:</span> <span className="text-slate-600 font-semibold">${parseFloat(q.estimated_total).toFixed(2)}</span></div>}
+                          {q.items_summary && <div className="sm:col-span-2"><span className="font-medium text-slate-700">Items:</span> <span className="text-slate-600">{q.items_summary}</span></div>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+                          <span className="text-sm font-medium text-slate-600">Update status:</span>
+                          {['Pending', 'Reviewed', 'Approved', 'Cancelled'].map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => updateQuoteStatus(q.id, s)}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                q.status === s
+                                  ? 'bg-navy text-white'
+                                  : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >{s}</button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => deleteQuoteRequest(q.id)}
+                            className="ml-auto flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'contacts':
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-gold">Inbox</p>
+                <h3 className="text-2xl font-bold text-navy">Contact Messages</h3>
+              </div>
+              <button type="button" onClick={fetchContactMessages} className="flex items-center gap-2 rounded-lg bg-gold px-3 py-2 text-sm font-medium text-white hover:bg-navy transition-colors">
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </button>
+            </div>
+
+            {contactMessages.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">No contact messages yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {contactMessages.map((m) => (
+                  <div key={m.id} className={`rounded-2xl border shadow-sm overflow-hidden ${m.status === 'Unread' ? 'border-gold/40 bg-gold/5' : 'border-slate-200 bg-white'}`}>
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => {
+                        setExpandedContact(expandedContact === m.id ? null : m.id);
+                        if (m.status === 'Unread') updateContactStatus(m.id, 'Read');
+                      }}
+                    >
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          m.status === 'Unread' ? 'bg-gold/20 text-yellow-800' : 'bg-slate-100 text-slate-600'
+                        }`}>{m.status}</span>
+                        <span className="font-semibold text-slate-800">{m.name}</span>
+                        <span className="text-sm text-slate-500">{m.email}</span>
+                        {m.phone && <span className="text-sm text-slate-500">{m.phone}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-slate-400">
+                        <span className="hidden sm:block font-medium text-slate-700 truncate max-w-[160px]">{m.subject}</span>
+                        <span>{new Date(m.created_at).toLocaleDateString()}</span>
+                        <span>{expandedContact === m.id ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+
+                    {expandedContact === m.id && (
+                      <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50">
+                        <div className="text-sm">
+                          <span className="font-medium text-slate-700">Subject:</span>
+                          <span className="ml-2 text-slate-800 font-semibold">{m.subject}</span>
+                        </div>
+                        <div className="rounded-lg bg-white border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-wrap">
+                          {m.message}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+                          <a
+                            href={`mailto:${m.email}?subject=Re: ${encodeURIComponent(m.subject)}`}
+                            className="flex items-center gap-1 rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold transition-colors"
+                          >
+                            <Mail className="h-3 w-3" /> Reply by Email
+                          </a>
+                          {['Unread', 'Read', 'Replied'].map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => updateContactStatus(m.id, s)}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                m.status === s
+                                  ? 'bg-navy text-white'
+                                  : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >{s}</button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => deleteContactMessage(m.id)}
+                            className="ml-auto flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
       case 'chatlogs':
         return (
           <div className="space-y-5">
@@ -1627,7 +1957,7 @@ const AdminPanel = () => {
 
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
         <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -1647,6 +1977,7 @@ const AdminPanel = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
                 className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 focus:border-gold focus:outline-none"
+                required
               />
             </div>
             <div>
@@ -1658,6 +1989,7 @@ const AdminPanel = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   className="w-full rounded-lg border border-slate-200 p-2.5 pr-10 focus:border-gold focus:outline-none"
+                  required
                 />
                 <button
                   type="button"
@@ -2061,7 +2393,7 @@ const AdminPanel = () => {
         </div>
       )}
 
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-0 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[200] overflow-y-auto bg-slate-950/70 p-0 backdrop-blur-sm">
         <div
           className="mx-auto flex min-h-screen max-w-7xl min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-white shadow-2xl md:h-full md:min-h-0 md:flex-row md:rounded-none"
           onTouchStart={handleTouchStart}

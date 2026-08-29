@@ -8,6 +8,11 @@ const Hero = () => {
   const { setIsDrawerOpen } = useQuote();
   const { siteContent } = useSiteContent();
   const hero = siteContent.hero;
+  const communications = siteContent.communications || {};
+  const whatsappNumber = (communications.whatsappNumber || siteContent.business.phone || '').replace(/\D/g, '');
+  const whatsappLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(communications.whatsappGreeting || 'Hello! I am interested in your event rental services.')}`
+    : hero.whatsappLink;
 
   const heroSlides = useMemo(() => {
     const slides = Array.isArray(hero?.slides) && hero.slides.length > 0 ? hero.slides : [{ id: 1, image: hero.backgroundImage, badge: hero.badge, title: hero.title, description: hero.description }];
@@ -64,7 +69,7 @@ const Hero = () => {
 
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:gap-4">
               <a
-                href={hero.whatsappLink}
+                href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center bg-green-500 text-white px-3 py-3 text-sm rounded-full font-medium hover:bg-green-600 transition-colors sm:px-8 sm:py-4 sm:text-base"

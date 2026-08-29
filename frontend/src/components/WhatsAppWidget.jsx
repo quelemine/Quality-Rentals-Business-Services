@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
+import { useSiteContent } from '../context/SiteContentContext';
 
 const WhatsAppWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const phoneNumber = '231776748152'; // Liberia phone number
+  const { siteContent } = useSiteContent();
+  const communications = siteContent.communications || {};
+  const phoneNumber = (communications.whatsappNumber || siteContent.business.phone || '').replace(/\D/g, '');
 
   const handleSend = () => {
-    if (message.trim()) {
+    if (message.trim() && phoneNumber) {
       const currentPageUrl = encodeURIComponent(window.location.href);
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}%0A%0APage:%20${currentPageUrl}`;
@@ -22,7 +25,7 @@ const WhatsAppWidget = () => {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-4 md:bottom-8 md:right-8 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all z-50 animate-pulse"
+        className="fixed bottom-8 right-8 hidden rounded-full bg-green-500 p-4 text-white shadow-lg transition-all hover:bg-green-600 md:block animate-pulse"
         style={{ animation: isOpen ? 'none' : 'pulse 2s infinite' }}
       >
         <MessageCircle className="w-6 h-6" />
@@ -30,7 +33,7 @@ const WhatsAppWidget = () => {
 
       {/* Chat Card */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 w-80 bg-white rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="fixed bottom-24 right-8 hidden w-80 overflow-hidden rounded-xl bg-white shadow-2xl md:block z-50">
           {/* Header */}
           <div className="bg-green-500 text-white p-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -38,8 +41,8 @@ const WhatsAppWidget = () => {
                 <MessageCircle className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-medium">Quality Rental Support</h4>
-                <p className="text-xs text-green-100">Online - Typically replies in 5 minutes</p>
+                <h4 className="font-medium">{communications.widgetTitle || 'Quality Rental Support'}</h4>
+                <p className="text-xs text-green-100">{communications.availabilityText || 'Online - Typically replies in 5 minutes'}</p>
               </div>
             </div>
             <button
@@ -55,13 +58,13 @@ const WhatsAppWidget = () => {
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message here..."
+              placeholder={communications.whatsappGreeting || 'Type your message here...'}
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-sm"
             />
             <button
               onClick={handleSend}
-              disabled={!message.trim()}
+              disabled={!message.trim() || !phoneNumber}
               className="mt-3 w-full bg-green-500 text-white py-2 rounded-lg font-medium hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               <Send className="w-4 h-4" />

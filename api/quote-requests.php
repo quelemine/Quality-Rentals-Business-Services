@@ -1,10 +1,8 @@
 <?php
 // Quote Requests API Endpoint
-// POST /api/quote-requests - Submit a new quote request with items
-
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=UTF-8');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once './config/database.php';
@@ -12,9 +10,73 @@ include_once './config/database.php';
 $database = new Database();
 $db = $database->getConnection();
 
-// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    exit();
+}
+
+// GET - fetch all quote requests with their items
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    try {
+        $query = "SELECT qr.*, 
+                    GROUP_CONCAT(CONCAT(p.name, ' x', qi.quantity) SEPARATOR ', ') AS items_summary
+                  FROM quote_requests qr
+                  LEFT JOIN quote_items qi ON qi.quote_request_id = qr.id
+                  LEFT JOIN products p ON p.id = qi.product_id
+                  GROUP BY qr.id
+                  ORDER BY qr.created_at DESC";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $quotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        http_response_code(200);
+        echo json_encode(['success' => true, 'quotes' => $quotes]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit();
+}
+
+// PUT - update quote status
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $data = json_decode(file_get_contents('php://input'));
+    if (empty($data->id) || empty($data->status)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ID and status required.']);
+        exit();
+    }
+    try {
+        $stmt = $db->prepare("UPDATE quote_requests SET status = :status WHERE id = :id");
+        $stmt->bindParam(':status', $data->status);
+        $stmt->bindParam(':id', $data->id);
+        $stmt->execute();
+        http_response_code(200);
+        echo json_encode(['success' => true, 'message' => 'Status updated.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit();
+}
+
+// DELETE - delete a quote request
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ID required.']);
+        exit();
+    }
+    try {
+        $stmt = $db->prepare("DELETE FROM quote_requests WHERE id = :id");
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        http_response_code(200);
+        echo json_encode(['success' => true, 'message' => 'Quote request deleted.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
     exit();
 }
 

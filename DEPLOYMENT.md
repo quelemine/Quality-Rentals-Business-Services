@@ -1,163 +1,229 @@
-# Quality Rental Services - Deployment Guide
+# Hostinger Deployment Guide
+## Quality Rental Business Services
 
-## Environment Variables
+---
 
-### Required for Production
-Set these environment variables before deploying to production:
+## Overview
 
-```bash
-# Application Environment
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://yourdomain.com
+| Layer | Technology | Where it runs |
+|---|---|---|
+| Frontend | React + Vite (built to static files) | Hostinger `public_html/` |
+| Backend | PHP REST API | Hostinger `public_html/api/` |
+| Database | MySQL | Hostinger MySQL Databases panel |
 
-# Database Configuration (Required)
-DB_HOST=your_database_host
-DB_NAME=your_database_name
-DB_USER=your_database_user
-DB_PASSWORD=your_secure_database_password
+---
 
-# Security Configuration (Required)
-JWT_SECRET=your_jwt_secret_key_minimum_32_characters
-SESSION_SECRET=your_session_secret_key_minimum_32_characters
+## Step 1 — Create the MySQL Database on Hostinger
 
-# Email Configuration (Required for password reset)
-SMTP_HOST=smtp.yourdomain.com
-SMTP_PORT=587
-SMTP_USERNAME=your_smtp_username
-SMTP_PASSWORD=your_smtp_password
-SMTP_FROM=noreply@yourdomain.com
-SMTP_FROM_NAME=Quality Rental Services
+1. Log in to **Hostinger hPanel**
+2. Go to **Databases → MySQL Databases**
+3. Create a new database, e.g. `quality_rentals`
+4. Create a database user and assign it to the database with **All Privileges**
+5. Note down:
+   - Database host (usually `localhost`)
+   - Database name
+   - Database username
+   - Database password
+
+---
+
+## Step 2 — Import the Database Schema
+
+1. In hPanel go to **Databases → phpMyAdmin**
+2. Select your database
+3. Click the **Import** tab
+4. Upload `database/schema.sql` → click **Go**
+5. Then import `database/seed.sql` for the default categories and products
+
+---
+
+## Step 3 — Create the Admin Account
+
+In phpMyAdmin, run this SQL (replace the values):
+
+```sql
+INSERT INTO admin (username, email, password)
+VALUES (
+  'YourUsername',
+  'your@email.com',
+  '$2y$10$REPLACE_WITH_BCRYPT_HASH'
+);
 ```
 
-### Development Mode (Optional)
-For local development, these variables have safe defaults:
+To generate a bcrypt hash for your password, use this PHP snippet in any PHP file:
 
-```bash
-APP_ENV=development
-APP_DEBUG=true
-APP_URL=http://localhost:5173
-
-DB_HOST=localhost
-DB_NAME=quality_rentals
-DB_USER=root
-DB_PASSWORD=
+```php
+<?php echo password_hash('YourPassword', PASSWORD_BCRYPT); ?>
 ```
 
-## Setup Instructions
+Or simply log in with your **existing credentials** — they were migrated from local.
 
-### 1. Environment Configuration
-```bash
-# Copy the example file
-cp .env.example .env
+---
 
-# Edit with your actual values
-nano .env
+## Step 4 — Upload the Backend (PHP API)
+
+Upload these folders/files to `public_html/` on Hostinger via **File Manager** or FTP:
+
+```
+public_html/
+├── api/
+│   ├── auth/
+│   │   ├── login.php
+│   │   ├── forgot-password.php
+│   │   ├── reset-password.php
+│   │   └── change-password.php
+│   ├── config/
+│   │   └── database.php
+│   ├── .htaccess
+│   ├── categories.php
+│   ├── chat-logs.php
+│   ├── color-settings.php
+│   ├── contact.php
+│   ├── gallery.php
+│   ├── products.php
+│   ├── quote-requests.php
+│   └── search-products.php
 ```
 
-### 2. Database Setup
-```bash
-# Import schema
-mysql -u root -p < database/schema.sql
+---
 
-# Import seed data (optional)
-mysql -u root -p quality_rentals < database/seed.sql
+## Step 5 — Configure Database Credentials on Hostinger
 
-# Run migration scripts
-php database/add_admin_table.php
-php database/add_password_reset_tokens.php
-php database/add_color_settings.php
+Edit `api/config/database.php` **on the server** and update the development defaults to match your Hostinger database:
+
+```php
+$this->host = getenv('DB_HOST') ?: 'localhost';
+$this->db_name = getenv('DB_NAME') ?: 'your_hostinger_db_name';
+$this->username = getenv('DB_USER') ?: 'your_hostinger_db_user';
+$this->password = getenv('DB_PASSWORD') ?: 'your_hostinger_db_password';
 ```
 
-### 3. Create Admin Account
-```bash
-# Connect to database
-mysql -u root -p quality_rentals
+> **Tip:** Hostinger Business plan supports environment variables via hPanel → Advanced → PHP Configuration. Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` there so credentials are never in code.
 
-# Insert admin user (replace with secure password)
-INSERT INTO admin (username, email, password) 
-VALUES ('admin', 'admin@yourdomain.com', '$2y$10$hashedpasswordhere');
-```
+---
 
-### 4. Frontend Build
+## Step 6 — Build & Upload the Frontend
+
+Run the production build locally:
+
 ```bash
 cd frontend
-npm install
 npm run build
 ```
 
-### 5. Web Server Configuration
+This creates `frontend/dist/` with these files:
 
-#### Apache (.htaccess)
-```apache
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^api/(.*)$ api/$1.php [L]
-</IfModule>
+```
+dist/
+├── index.html
+├── .htaccess
+├── assets/
+│   ├── index-[hash].js
+│   └── index-[hash].css
+├── images/
+│   └── QualityRentalServices-logo.jpeg
+└── upload/
+    └── (product images)
 ```
 
-#### Nginx
-```nginx
-location /api/ {
-  rewrite ^/api/(.*)$ /api/$1.php last;
-}
+Upload the **entire contents** of `frontend/dist/` to `public_html/` on Hostinger.
+
+> **Important:** Upload the *contents* of `dist/`, not the `dist/` folder itself. So `index.html` should be at `public_html/index.html`.
+
+---
+
+## Step 7 — Upload Product Images
+
+Upload `frontend/public/upload/` folder contents to `public_html/upload/` on Hostinger.
+Upload `frontend/public/images/` folder contents to `public_html/images/` on Hostinger.
+
+---
+
+## Step 8 — Verify the .htaccess Files
+
+Make sure these two `.htaccess` files are in place:
+
+**`public_html/.htaccess`** — handles React routing + HTTPS redirect (already in `dist/`)
+
+**`public_html/api/.htaccess`** — secures the API directory (already in `api/`)
+
+---
+
+## Step 9 — Test the Deployment
+
+Visit your domain and check:
+
+| URL | Expected result |
+|---|---|
+| `https://yourdomain.com` | Homepage loads |
+| `https://yourdomain.com/#/rentals` | Products load from DB |
+| `https://yourdomain.com/#/admin-login` | Login page loads |
+| `https://yourdomain.com/api/products.php` | Returns JSON |
+| `https://yourdomain.com/api/categories.php` | Returns JSON |
+
+---
+
+## Step 10 — Admin Login After Deployment
+
+Go to `https://yourdomain.com/#/admin-login`
+
+- Username: `Susanna` (or whatever you set)
+- Password: `Paye!12345` (or whatever you set)
+
+---
+
+## Folder Structure on Hostinger (Final)
+
+```
+public_html/
+├── index.html              ← React app entry point
+├── .htaccess               ← React routing + HTTPS
+├── favicon.ico
+├── assets/                 ← JS + CSS bundles
+├── images/                 ← Logo and static images
+├── upload/                 ← Product images
+└── api/                    ← PHP backend
+    ├── .htaccess
+    ├── config/
+    │   └── database.php
+    ├── auth/
+    │   └── *.php
+    └── *.php
 ```
 
-## Security Checklist
-
-- [ ] Set APP_ENV=production
-- [ ] Set strong database password
-- [ ] Set JWT_SECRET (minimum 32 characters)
-- [ ] Set SESSION_SECRET (minimum 32 characters)
-- [ ] Configure SMTP for password reset
-- [ ] Change default admin password
-- [ ] Enable HTTPS
-- [ ] Set up firewall rules
-- [ ] Configure backup strategy
-- [ ] Monitor error logs
-
-## Production Deployment
-
-### File Permissions
-```bash
-# Set proper permissions
-chmod 755 /var/www/html
-chmod 644 /var/www/html/*.php
-chmod 600 /var/www/html/.env
-```
-
-### Apache Virtual Host
-```apache
-<VirtualHost *:80>
-    ServerName yourdomain.com
-    Redirect permanent / https://yourdomain.com/
-</VirtualHost>
-
-<VirtualHost *:443>
-    ServerName yourdomain.com
-    DocumentRoot /var/www/html
-    SSLEngine on
-    SSLCertificateFile /path/to/cert.pem
-    SSLCertificateKeyFile /path/to/key.pem
-</VirtualHost>
-```
+---
 
 ## Troubleshooting
 
-### Database Connection Failed
-- Check environment variables are set
-- Verify database credentials
-- Ensure MySQL service is running
-- Check firewall allows connection
+### Blank page after upload
+- Make sure `index.html` is at `public_html/index.html` (not inside a subfolder)
+- Check `.htaccess` is uploaded (File Manager hides dot files — enable "Show hidden files")
 
-### Password Reset Not Working
-- Verify SMTP configuration
-- Check email server logs
-- Ensure email is not blocked by spam filters
+### API returns 404
+- Confirm `api/` folder is at `public_html/api/`
+- Check PHP version in hPanel is 8.0+
 
-### Build Errors
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check Node.js version (requires 18+)
-- Verify package.json is intact
+### Database connection error
+- Verify credentials in `api/config/database.php`
+- On Hostinger, the DB host is usually `localhost` — not an IP
+
+### Images not showing
+- Make sure `upload/` folder is at `public_html/upload/`
+- File names are case-sensitive on Linux — match exactly
+
+### CORS errors in browser console
+- The `api/*.php` files already set `Access-Control-Allow-Origin: *`
+- If issues persist, add this to `public_html/.htaccess`:
+  ```apache
+  Header always set Access-Control-Allow-Origin "*"
+  ```
+
+---
+
+## Security Checklist Before Going Live
+
+- [ ] Change admin password from default
+- [ ] Set database credentials via environment variables (not hardcoded)
+- [ ] Confirm HTTPS is active (Hostinger provides free SSL — enable in hPanel)
+- [ ] Verify `api/config/database.php` is not publicly accessible
+- [ ] Remove any test or debug files

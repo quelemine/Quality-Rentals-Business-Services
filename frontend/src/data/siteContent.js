@@ -61,6 +61,12 @@ export const DEFAULT_SITE_CONTENT = {
     location: 'Paynesville City, Montserrado County - Liberia',
     logo: '/images/QualityRentalServices-logo.jpeg',
   },
+  communications: {
+    whatsappNumber: '231776748152',
+    whatsappGreeting: 'Hello! How can we help with your event rental needs?',
+    widgetTitle: 'Quality Rental Support',
+    availabilityText: 'Online - Typically replies in 5 minutes',
+  },
   hero: {
     badge: 'EVERY EVENT. PERFECTLY EQUIPPED.',
     title: 'We Supply. You Celebrate.',
@@ -157,6 +163,8 @@ export const DEFAULT_SITE_CONTENT = {
     },
   },
   catalog: {
+    badge: 'What We Rent',
+    title: 'Everything You Need for a Successful Event',
     categories: [
       { id: 1, name: 'Canopy / Tents', icon_name: 'TentIcon' },
       { id: 2, name: 'Tables & Chairs', icon_name: 'ArmchairIcon' },
@@ -249,4 +257,22 @@ export const resetSiteContent = () => {
 
   localStorage.removeItem(STORAGE_KEY);
   return DEFAULT_SITE_CONTENT;
+};
+
+export const resetWebsiteContentOnly = (currentContent) => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_SITE_CONTENT;
+  }
+
+  // Preserve catalog (products and categories) - they come from API/database
+  const preservedCatalog = currentContent?.catalog || DEFAULT_SITE_CONTENT.catalog;
+
+  // Reset only website content sections
+  const resetContent = {
+    ...DEFAULT_SITE_CONTENT,
+    catalog: preservedCatalog, // Keep existing catalog
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(resetContent));
+  return resetContent;
 };

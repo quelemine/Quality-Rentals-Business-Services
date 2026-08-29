@@ -42,7 +42,7 @@ const ResetPasswordPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/auth/reset-password.php', {
+      const response = await fetch('/api/auth/reset-password.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

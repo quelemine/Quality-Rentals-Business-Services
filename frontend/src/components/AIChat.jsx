@@ -131,7 +131,7 @@ const AIChat = () => {
     }
 
     try {
-      const response = await fetch('http://localhost/qualityrentalservices/api/chat-logs.php', {
+      const response = await fetch('/api/chat-logs.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,7 +165,7 @@ const AIChat = () => {
 
   const searchProducts = async (query) => {
     try {
-      const response = await fetch(`http://localhost/qualityrentalservices/api/search-products.php?query=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/search-products.php?query=${encodeURIComponent(query)}`);
       const data = await response.json();
       if (data.success && data.products.length > 0) {
         return data.products;
