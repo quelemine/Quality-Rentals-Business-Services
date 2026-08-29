@@ -35,20 +35,21 @@ const Header = () => {
 
   return (
     <>
-      <div className="hidden bg-gold text-white py-2 sm:block">
+      <div className="bg-gold text-white py-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center gap-3">
-            <div className="flex items-center gap-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap justify-between items-center gap-y-1 gap-x-3">
+            <div className="flex items-center gap-3 text-xs sm:text-sm">
               <a href={`tel:${business.phone.replace(/\s+/g, '')}`} className="flex items-center hover:text-navy transition-colors">
-                <Phone className="w-4 h-4 mr-2" />
+                <Phone className="w-3.5 h-3.5 mr-1.5" />
                 {business.phone}
               </a>
-              <a href={`mailto:${business.email}`} className="hidden items-center hover:text-navy transition-colors sm:flex">
-                <Mail className="w-4 h-4 mr-2" />
-                {business.email}
+              <a href={`mailto:${business.email}`} className="flex items-center hover:text-navy transition-colors">
+                <Mail className="w-3.5 h-3.5 mr-1.5" />
+                <span className="hidden sm:inline">{business.email}</span>
+                <span className="sm:hidden">Email</span>
               </a>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               <LanguageSelector />
               {socials.facebook && (
                 <a href={socials.facebook} target="_blank" rel="noreferrer" className="hover:text-navy transition-colors">
