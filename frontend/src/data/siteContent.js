@@ -247,7 +247,37 @@ export const saveSiteContent = (content) => {
     return;
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(content));
+  // Never store products/catalog in localStorage — they come from the API
+  // and contain large base64 images that blow the 5MB quota.
+  // Only save the lightweight site settings.
+  const { catalog, ...contentWithoutCatalog } = content;
+  const safeContent = {
+    ...contentWithoutCatalog,
+    // Keep category list (small) but strip products (large base64 images)
+    catalog: {
+      ...(catalog || {}),
+      products: [],
+    },
+  };
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(safeContent));
+  } catch (error) {
+    console.warn('localStorage save failed, trying minimal save:', error.message);
+    // Last resort: save only the critical communications/business settings
+    try {
+      const minimalContent = {
+        business: content.business,
+        communications: content.communications,
+        footer: content.footer,
+        hero: { badge: content.hero?.badge, title: content.hero?.title, description: content.hero?.description, whatsappLink: content.hero?.whatsappLink },
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalContent));
+    } catch (e) {
+      console.error('localStorage completely full, clearing and retrying:', e.message);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
 };
 
 export const resetSiteContent = () => {

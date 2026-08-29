@@ -468,11 +468,9 @@ const AdminPanel = () => {
 
   const handleSaveAndClose = async () => {
     try {
-      // Save site content to localStorage via context
+      // Use the context's saveSiteContent which safely strips large product images
       if (typeof setSiteContent === 'function') {
-        // The context should handle localStorage persistence
-        // Force a save by setting the content
-        localStorage.setItem('quality-rental-site-content-v1', JSON.stringify(siteContent));
+        setSiteContent(siteContent);
       }
       
       alert('Changes saved successfully!');
