@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO chat_logs 
-            (user_name, message, sender, device_type, device_os, browser, location_country, location_city, ip_address, session_id)
+            (user_name, message, sender, device_type, device_os, browser, browser_version, screen_resolution, viewport_size, language, platform, location_country, location_city, ip_address, session_id)
             VALUES 
-            (:user_name, :message, :sender, :device_type, :device_os, :browser, :location_country, :location_city, :ip_address, :session_id)
+            (:user_name, :message, :sender, :device_type, :device_os, :browser, :browser_version, :screen_resolution, :viewport_size, :language, :platform, :location_country, :location_city, :ip_address, :session_id)
         ");
         
         $stmt->execute([
@@ -46,6 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':device_type' => $data['device_type'] ?? null,
             ':device_os' => $data['device_os'] ?? null,
             ':browser' => $data['browser'] ?? null,
+            ':browser_version' => $data['browser_version'] ?? null,
+            ':screen_resolution' => $data['screen_resolution'] ?? null,
+            ':viewport_size' => $data['viewport_size'] ?? null,
+            ':language' => $data['language'] ?? null,
+            ':platform' => $data['platform'] ?? null,
             ':location_country' => $data['location_country'] ?? null,
             ':location_city' => $data['location_city'] ?? null,
             ':ip_address' => $data['ip_address'] ?? $_SERVER['REMOTE_ADDR'] ?? null,

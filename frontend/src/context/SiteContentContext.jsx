@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { DEFAULT_SITE_CONTENT, loadSiteContent, saveSiteContent, resetSiteContent } from '../data/siteContent';
+import { DEFAULT_SITE_CONTENT, loadSiteContent, saveSiteContent, resetSiteContent, resetWebsiteContentOnly } from '../data/siteContent';
 
 const SiteContentContext = createContext();
 
@@ -16,8 +16,13 @@ export const SiteContentProvider = ({ children }) => {
     setSiteContent(freshContent);
   };
 
+  const resetWebsiteContent = () => {
+    const freshContent = resetWebsiteContentOnly(siteContent);
+    setSiteContent(freshContent);
+  };
+
   return (
-    <SiteContentContext.Provider value={{ siteContent, setSiteContent: updateSiteContent, resetContent }}>
+    <SiteContentContext.Provider value={{ siteContent, setSiteContent: updateSiteContent, resetContent, resetWebsiteContent }}>
       {children}
     </SiteContentContext.Provider>
   );

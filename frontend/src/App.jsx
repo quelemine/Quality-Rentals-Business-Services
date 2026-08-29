@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QuoteProvider } from './context/QuoteContext';
 import { SiteContentProvider } from './context/SiteContentContext';
 import Header from './components/Header';
@@ -18,6 +18,7 @@ import GalleryPage from './pages/GalleryPage';
 import EventsPage from './pages/EventsPage';
 import ContactPage from './pages/ContactPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminLoginPage from './pages/AdminLoginPage';
 
 function AppLayout() {
   return (
@@ -31,7 +32,6 @@ function AppLayout() {
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
       <Footer />
       <QuoteDrawer />
@@ -39,6 +39,8 @@ function AppLayout() {
       <AIChat />
       <MobileNav />
       <Toast />
+      {/* AdminPanel overlay — only activates when ?admin=1 is in the URL after login */}
+      <AdminPanel />
     </div>
   );
 }
@@ -50,6 +52,10 @@ function App() {
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            {/* Clean standalone login page — no overlapping widgets */}
+            <Route path="/admin-login" element={<AdminLoginPage />} />
+            {/* Redirect old /admin URL to the new login page */}
+            <Route path="/admin" element={<Navigate to="/admin-login" replace />} />
             <Route path="/*" element={<AppLayout />} />
           </Routes>
         </HashRouter>

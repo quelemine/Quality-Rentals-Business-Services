@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { Tent, Armchair, Container, Layers } from 'lucide-react';
 import { useSiteContent } from '../context/SiteContentContext';
@@ -10,7 +11,18 @@ const ProductCatalog = () => {
   const [apiCategories, setApiCategories] = useState([]);
   const [apiProducts, setApiProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
+
+  const updateSearchQuery = (value) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      nextParams.set('search', value);
+    } else {
+      nextParams.delete('search');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,12 +63,13 @@ const ProductCatalog = () => {
       filtered = filtered.filter((product) => 
         product.name?.toLowerCase().includes(query) ||
         product.description?.toLowerCase().includes(query) ||
-        product.price?.toLowerCase().includes(query)
+        String(product.price || '').toLowerCase().includes(query) ||
+        categories.find((category) => String(category.id) === String(product.category_id))?.name?.toLowerCase().includes(query)
       );
     }
     
     return filtered;
-  }, [activeCategory, products, searchQuery]);
+  }, [activeCategory, categories, products, searchQuery]);
 
   const getCategoryIcon = (iconName) => {
     const icons = {
@@ -95,7 +108,7 @@ const ProductCatalog = () => {
             type="text"
             placeholder="Search products..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => updateSearchQuery(e.target.value)}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
           />
         </div>

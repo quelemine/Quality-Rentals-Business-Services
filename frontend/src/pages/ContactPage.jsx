@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
+import { useSiteContent } from '../context/SiteContentContext';
 
 const ContactPage = () => {
+  const { siteContent } = useSiteContent();
+  const business = siteContent.business;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,15 +18,29 @@ const ContactPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate form submission
-    setTimeout(() => {
-      setSubmitMessage('Thank you for your message! We will get back to you soon.');
-      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    setSubmitMessage('');
+
+    try {
+      const response = await fetch('/api/contact.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSubmitMessage('Thank you for your message! We will get back to you soon.');
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      } else {
+        setSubmitMessage('Failed to send message. Please try again.');
+      }
+    } catch (err) {
+      setSubmitMessage('Network error. Please check your connection and try again.');
+    } finally {
       setIsSubmitting(false);
-      
-      setTimeout(() => setSubmitMessage(''), 5000);
-    }, 1500);
+      setTimeout(() => setSubmitMessage(''), 6000);
+    }
   };
 
   const handleChange = (e) => {
@@ -149,8 +166,8 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-700">Phone</p>
-                    <a href="tel:+231776748152" className="text-lg font-semibold text-navy hover:text-gold transition-colors">
-                      +231 7767 48152
+                    <a href={`tel:${business.phone.replace(/\s+/g, '')}`} className="text-lg font-semibold text-navy hover:text-gold transition-colors">
+                      {business.phone}
                     </a>
                   </div>
                 </div>
@@ -161,8 +178,8 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-700">Email</p>
-                    <a href="mailto:paye.susanna@yahoo.com" className="text-lg font-semibold text-navy hover:text-gold transition-colors">
-                      paye.susanna@yahoo.com
+                    <a href={`mailto:${business.email}`} className="text-lg font-semibold text-navy hover:text-gold transition-colors">
+                      {business.email}
                     </a>
                   </div>
                 </div>
@@ -173,7 +190,7 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-700">Location</p>
-                    <p className="text-lg font-semibold text-navy">GSA Road, Paynesville City, Montserrado County - Liberia</p>
+                    <p className="text-lg font-semibold text-navy">{business.location}</p>
                   </div>
                 </div>
               </div>

@@ -33,43 +33,27 @@ const QuoteDrawer = () => {
     let totalUSD = 0;
     let hasContactForPrice = false;
 
-    console.log('=== Price Calculation Debug ===');
-    console.log('Quote Items:', quoteItems);
-
     quoteItems.forEach((item) => {
       const price = item.product_details.price;
       const priceCurrency = item.product_details.price_currency || 'USD';
-      console.log('Item:', item.product_details.name);
-      console.log('Raw Price:', price);
-      console.log('Price Currency:', priceCurrency);
-      console.log('Price Type:', typeof price);
       
       if (price && typeof price === 'string' && !price.toLowerCase().includes('contact')) {
         // Try to extract numeric value from price string (e.g., "$50/day" -> 50)
         const numericPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
-        console.log('Numeric Price:', numericPrice);
-        console.log('Quantity:', item.quantity);
         
         if (!isNaN(numericPrice)) {
           // Convert to USD if price is in LRD
           let priceInUSD = numericPrice;
           if (priceCurrency === 'LRD') {
             priceInUSD = numericPrice / USD_TO_LRD_RATE;
-            console.log('Converted LRD to USD:', priceInUSD);
           }
           
           totalUSD += priceInUSD * item.quantity;
-          console.log('Added to total USD:', priceInUSD * item.quantity);
         }
       } else if (!price || (typeof price === 'string' && price.toLowerCase().includes('contact'))) {
         hasContactForPrice = true;
-        console.log('Contact for price item detected');
       }
     });
-
-    console.log('Final Total USD:', totalUSD);
-    console.log('Final Total LRD:', convertToLRD(totalUSD));
-    console.log('Has Contact For Price:', hasContactForPrice);
 
     return { total: totalUSD, hasContactForPrice };
   };
