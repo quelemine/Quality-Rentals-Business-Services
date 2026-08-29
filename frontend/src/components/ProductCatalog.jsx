@@ -1,20 +1,60 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { Tent, Armchair, Container, Layers } from 'lucide-react';
 import { useSiteContent } from '../context/SiteContentContext';
 import { fetchCategories, fetchProducts } from '../services/api';
 
+// Simple skeleton card for loading state
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-pulse">
+    <div className="h-48 bg-slate-200" />
+    <div className="p-5 space-y-3">
+      <div className="h-5 bg-slate-200 rounded w-3/4" />
+      <div className="h-4 bg-slate-200 rounded w-full" />
+      <div className="h-4 bg-slate-200 rounded w-2/3" />
+      <div className="h-10 bg-slate-200 rounded-lg mt-4" />
+    </div>
+  </div>
+);
+
+const CACHE_KEY = 'qrs-catalog-cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 const ProductCatalog = () => {
   const { siteContent } = useSiteContent();
   const [activeCategory, setActiveCategory] = useState(null);
-  const [apiCategories, setApiCategories] = useState([]);
-  const [apiProducts, setApiProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [apiCategories, setApiCategories] = useState(() => {
+    // Show cached data instantly on first render
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+      if (cached.ts && Date.now() - cached.ts < CACHE_TTL) {
+        return cached.categories || [];
+      }
+    } catch {}
+    return siteContent.catalog?.categories || [];
+  });
+  const [apiProducts, setApiProducts] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+      if (cached.ts && Date.now() - cached.ts < CACHE_TTL) {
+        return cached.products || [];
+      }
+    } catch {}
+    return siteContent.catalog?.products || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    // Skip spinner if we have valid cache
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+      return !(cached.ts && Date.now() - cached.ts < CACHE_TTL);
+    } catch {}
+    return true;
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
 
-  const updateSearchQuery = (value) => {
+  const updateSearchQuery = useCallback((value) => {
     const nextParams = new URLSearchParams(searchParams);
     if (value.trim()) {
       nextParams.set('search', value);
@@ -22,27 +62,45 @@ const ProductCatalog = () => {
       nextParams.delete('search');
     }
     setSearchParams(nextParams, { replace: true });
-  };
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
+    // Check if cache is still fresh — skip fetch if so
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+      if (cached.ts && Date.now() - cached.ts < CACHE_TTL) {
+        return;
+      }
+    } catch {}
+
     const loadData = async () => {
       try {
         const [categoriesData, productsData] = await Promise.all([
           fetchCategories(),
           fetchProducts()
         ]);
-        
-        setApiCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        setApiProducts(Array.isArray(productsData) ? productsData : []);
+
+        const cats = Array.isArray(categoriesData) ? categoriesData : [];
+        const prods = Array.isArray(productsData) ? productsData : [];
+
+        setApiCategories(cats);
+        setApiProducts(prods);
+
+        // Cache results
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          ts: Date.now(),
+          categories: cats,
+          products: prods
+        }));
       } catch (error) {
         console.error('Error loading catalog data:', error);
-        // Fallback to localStorage data if API fails
         setApiCategories(siteContent.catalog?.categories || []);
         setApiProducts(siteContent.catalog?.products || []);
       } finally {
         setLoading(false);
       }
     };
+
     loadData();
   }, []);
 
@@ -86,9 +144,12 @@ const ProductCatalog = () => {
     return (
       <section id="rentals" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gold"></div>
-            <p className="mt-4 text-gray-600">Loading rentals...</p>
+          <div className="text-center mb-12">
+            <div className="h-4 bg-slate-200 rounded w-24 mx-auto mb-3 animate-pulse" />
+            <div className="h-8 bg-slate-200 rounded w-80 mx-auto animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         </div>
       </section>

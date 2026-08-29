@@ -44,7 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $query = "SELECT id, name, slug, icon_name FROM categories ORDER BY id";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        
+
+        // Cache for 10 minutes - categories rarely change
+        header('Cache-Control: public, max-age=600');
+
         $categories = array();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $categories[] = $row;

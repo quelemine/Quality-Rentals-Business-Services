@@ -60,14 +60,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         echo json_encode($products);
     } 
-    // Fetch all products
+    // Fetch all products - exclude heavy image_url for faster list loading
     else {
-        $query = "SELECT p.*, c.name as category_name, c.slug as category_slug 
+        $query = "SELECT p.id, p.category_id, p.name, p.slug, p.description,
+                  p.price, p.price_currency, p.is_available, p.stock_quantity,
+                  p.created_at, c.name as category_name, c.slug as category_slug,
+                  LEFT(p.image_url, 300) as image_preview,
+                  CASE WHEN p.image_url LIKE 'data:%' THEN 1 ELSE 0 END as is_base64,
+                  p.image_url as image_url
                   FROM products p 
                   LEFT JOIN categories c ON p.category_id = c.id 
                   ORDER BY p.id";
         $stmt = $db->prepare($query);
         $stmt->execute();
+        
+        // Add cache headers - cache for 5 minutes
+        header('Cache-Control: public, max-age=300');
+        header('ETag: "products-' . date('YmdH') . '"');
         
         $products = array();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
