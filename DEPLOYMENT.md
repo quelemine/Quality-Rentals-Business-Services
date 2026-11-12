@@ -421,13 +421,17 @@ group prevents overlapping deploys.
 
 ### When does it actually upload? (trigger safety)
 
-- **Push to `main` → ALWAYS a dry run.** It builds, lints, scans, stages and
-  connects via FTPS to show what *would* change — but uploads nothing and
-  runs no smoke tests. Safe to push freely.
-- **Real upload → ONLY via Actions → "Deploy to Hostinger" → Run workflow
-  with `dry_run` unchecked.** This is also the only way to roll back (set
-  `ref` to an earlier commit SHA or tag).
-- Both paths require approval if you configure the `production` environment
+- **Push to `main` → dry run by default.** It builds, lints, scans, stages
+  and connects via FTPS to show what *would* change — but uploads nothing
+  and runs no smoke tests.
+- **Automatic deploys:** set repository **variable** `AUTO_DEPLOY_ENABLED`
+  = `true` (Settings → Secrets and variables → Actions → Variables tab).
+  Only AFTER your first verified manual deployment — then every push to
+  `main` performs a real FTPS deploy + smoke tests automatically.
+- **Real upload → manual run:** Actions → "Deploy to Hostinger" → Run
+  workflow with `dry_run` unchecked. This is also the only way to roll
+  back (set `ref` to an earlier commit SHA or tag).
+- All paths require approval if you configure the `production` environment
   (below).
 
 ### Prerequisites BEFORE the first real deployment

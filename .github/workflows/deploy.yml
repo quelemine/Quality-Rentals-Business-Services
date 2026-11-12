@@ -41,6 +41,27 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
 
+      - name: Verify FTP secrets are configured
+        # Fails fast with a clear message if any secret is missing — values
+        # are never printed (GitHub masks them automatically).
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$FTP_SERVER" ]   && missing="$missing FTP_SERVER"
+          [ -z "$FTP_PORT" ]     && missing="$missing FTP_PORT"
+          [ -z "$FTP_USERNAME" ] && missing="$missing FTP_USERNAME"
+          [ -z "$FTP_PASSWORD" ] && missing="$missing FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing GitHub secrets:$missing"
+            echo "Add them under Settings → Secrets and variables → Actions → Secrets."
+            exit 1
+          fi
+          echo "All four FTP secrets are present (values hidden)."
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -163,14 +184,22 @@ jobs:
 
       - name: Compute dry-run flag
         id: flags
+        env:
+          AUTO_DEPLOY: ${{ vars.AUTO_DEPLOY_ENABLED }}
+          DISPATCH_DRY: ${{ inputs.dry_run }}
         run: |
-          # SAFETY: push events ALWAYS dry-run. A real upload is only possible
-          # via workflow_dispatch with dry_run explicitly unchecked.
+          # SAFETY:
+          #  - workflow_dispatch: real upload only when dry_run is unchecked
+          #  - push to main: real upload ONLY when repo variable
+          #    AUTO_DEPLOY_ENABLED=true; otherwise always a dry run
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            DRY="${{ inputs.dry_run }}"
+            DRY="$DISPATCH_DRY"
+          elif [ "$AUTO_DEPLOY" = "true" ]; then
+            DRY="false"
+            echo "::notice::AUTO_DEPLOY_ENABLED=true — this push WILL perform a real FTPS deployment."
           else
             DRY="true"
-            echo "::notice::Push-triggered run — forced to DRY RUN. No files will be uploaded."
+            echo "::notice::Push-triggered run — DRY RUN (set repository variable AUTO_DEPLOY_ENABLED=true to enable automatic deploys)."
           fi
           echo "dry_run=$DRY" >> "$GITHUB_OUTPUT"
           echo "Dry run: $DRY"
