@@ -237,6 +237,14 @@ jobs:
             **/*.zip
             **/.env*
             **/node_modules/**
+            # Preserve production upload/ images — only .htaccess deploys.
+            # Admin images live in the DB as base64; upload/ is static seed
+            # content. Excluding media means deploys can never overwrite or
+            # delete images that exist only on the server.
+            **/upload/*.jpeg
+            **/upload/*.jpg
+            **/upload/*.png
+            **/upload/*.webp
 
       - name: Fail clearly if FTPS failed
         if: steps.deploy.outcome != 'success'
