@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, Shield } from 'lucide-react';
+import { useSiteContent } from '../context/SiteContentContext';
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
+  const { siteContent } = useSiteContent();
+  const business = siteContent.business;
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +17,13 @@ const AdminLoginPage = () => {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
   const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
+
+  // Apply brand colors from settings
+  useEffect(() => {
+    const root = document.documentElement;
+    if (business.primaryColor) root.style.setProperty('--color-gold', business.primaryColor);
+    if (business.secondaryColor) root.style.setProperty('--color-navy', business.secondaryColor);
+  }, [business.primaryColor, business.secondaryColor]);
 
   // If already logged in, go straight to admin panel
   useEffect(() => {
@@ -39,13 +50,12 @@ const AdminLoginPage = () => {
         sessionStorage.setItem('qrs-admin-session', 'true');
         sessionStorage.setItem('qrs-admin-username', data.admin.username);
         sessionStorage.setItem('qrs-admin-email', data.admin.email);
-        // Navigate to home with admin=1 so the AdminPanel auto-opens
         navigate('/?admin=1', { replace: true });
       } else {
         setError(data.message || 'Invalid username or password.');
       }
     } catch (err) {
-      setError('Network error. Make sure XAMPP is running and try again.');
+      setError('Network error. Make sure the server is running and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -73,18 +83,40 @@ const AdminLoginPage = () => {
     }
   };
 
+  // Determine what to show as the login logo
+  const loginLogo = business.loginLogo || business.logo || null;
+  const hasCustomLogo = loginLogo && loginLogo !== '/favicon.ico';
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-navy mb-4">
-            <Shield className="w-8 h-8 text-gold" />
-          </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-gold font-medium">Admin Login</p>
+          {hasCustomLogo ? (
+            <div className="inline-flex items-center justify-center mb-4">
+              <img
+                src={loginLogo}
+                alt={business.companyName || 'Logo'}
+                className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              {/* Fallback icon if image fails */}
+              <div className="hidden h-24 w-24 rounded-full bg-navy items-center justify-center border-4 border-white shadow-lg">
+                <Shield className="w-10 h-10 text-gold" />
+              </div>
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-navy mb-4 border-4 border-white shadow-lg">
+              <Shield className="w-9 h-9 text-gold" />
+            </div>
+          )}
+          <p className="text-xs uppercase tracking-[0.25em] text-gold font-semibold">Admin Login</p>
           <h1 className="mt-1 text-2xl font-bold text-navy">Website Control</h1>
-          <p className="mt-1 text-sm text-slate-500">Quality Rental Business Services</p>
+          <p className="mt-1 text-sm text-slate-500">{business.companyName || 'Quality Rental Business Services'}</p>
         </div>
 
         {/* Login Card */}
@@ -144,7 +176,10 @@ const AdminLoginPage = () => {
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 text-sm font-semibold text-white hover:bg-navy transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
-                  <span>Logging in...</span>
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Logging in...
+                  </>
                 ) : (
                   <>
                     <LogIn className="h-4 w-4" />
@@ -181,7 +216,11 @@ const AdminLoginPage = () => {
               </div>
 
               {forgotMessage && (
-                <div className={`rounded-lg px-4 py-3 text-sm border ${forgotMessage.toLowerCase().includes('sent') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                <div className={`rounded-lg px-4 py-3 text-sm border ${
+                  forgotMessage.toLowerCase().includes('sent')
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-red-50 border-red-200 text-red-700'
+                }`}>
                   {forgotMessage}
                 </div>
               )}
@@ -206,7 +245,7 @@ const AdminLoginPage = () => {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          © 2026 Quality Rental Business Services
+          {business.copyrightText || `© ${new Date().getFullYear()} ${business.companyName || 'Quality Rental Business Services'}. All rights reserved.`}
         </p>
       </div>
     </div>

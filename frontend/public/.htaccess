@@ -1,0 +1,33 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Don't rewrite real files or directories (assets, api/, images/, upload/)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Send everything else to the SPA entry point
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Block the FTP-Deploy-Action sync-state file from being downloaded
+<Files ".ftp-deploy-sync-state.json">
+  Require all denied
+</Files>
+<IfModule !mod_authz_core.c>
+  <Files ".ftp-deploy-sync-state.json">
+    Order allow,deny
+    Deny from all
+  </Files>
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # HSTS — only enable once HTTPS is confirmed active on the domain
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>

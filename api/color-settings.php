@@ -9,6 +9,7 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once '../config/database.php';
+include_once '../config/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -40,13 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             "colors" => $colorSettings
         ));
     } catch (Exception $e) {
+        error_log("Color settings GET error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(array(
             "success" => false,
-            "message" => "Server error: " . $e->getMessage()
+            "message" => "Server error."
         ));
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireAdmin();
     $data = json_decode(file_get_contents('php://input'));
     
     if (!empty($data->colors)) {
@@ -64,10 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 "message" => "Color settings updated successfully."
             ));
         } catch (Exception $e) {
+            error_log("Color settings POST error: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(array(
                 "success" => false,
-                "message" => "Server error: " . $e->getMessage()
+                "message" => "Server error."
             ));
         }
     } else {

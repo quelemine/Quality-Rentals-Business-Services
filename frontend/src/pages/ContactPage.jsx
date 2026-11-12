@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SEO from '../components/SEO/SEO';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import { useSiteContent } from '../context/SiteContentContext';
 
@@ -10,7 +11,8 @@ const ContactPage = () => {
     email: '',
     phone: '',
     subject: '',
-    message: ''
+    message: '',
+    hp_check: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
@@ -31,7 +33,7 @@ const ContactPage = () => {
 
       if (data.success) {
         setSubmitMessage('Thank you for your message! We will get back to you soon.');
-        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '', hp_check: '' });
       } else {
         setSubmitMessage('Failed to send message. Please try again.');
       }
@@ -48,6 +50,12 @@ const ContactPage = () => {
   };
 
   return (
+    <>
+    <SEO
+  title="Contact Quality Rental Business Services | Liberia"
+  description="Contact Quality Rental Business Services in Liberia for event rental equipment, quotes, delivery, and event support."
+  canonical="https://suerental.com/contact"
+/>
     <div className="bg-slate-50 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
@@ -134,6 +142,18 @@ const ContactPage = () => {
                 />
               </div>
 
+              {/* Honeypot field — hidden from real users, bots fill it */}
+              <input
+                type="text"
+                name="hp_check"
+                value={formData.hp_check}
+                onChange={handleChange}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+              />
+
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -213,6 +233,7 @@ const ContactPage = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

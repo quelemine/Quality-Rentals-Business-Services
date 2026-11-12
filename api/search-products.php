@@ -53,10 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             "products" => $products
         ));
     } catch (Exception $e) {
+        error_log("Product search error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(array(
             "success" => false,
-            "message" => "Server error: " . $e->getMessage()
+            "message" => "Server error."
         ));
     }
 } else {

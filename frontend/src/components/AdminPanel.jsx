@@ -167,10 +167,23 @@ const AdminPanel = () => {
     }
   };
 
+  // Wrapper for admin-only API calls: sends session cookie and redirects to
+  // the login page if the server session has expired (401).
+  const adminFetch = async (url, options = {}) => {
+    const response = await fetch(url, { credentials: 'same-origin', ...options });
+    if (response.status === 401) {
+      sessionStorage.removeItem('qrs-admin-session');
+      sessionStorage.removeItem('qrs-admin-username');
+      sessionStorage.removeItem('qrs-admin-email');
+      window.location.href = '/admin-login';
+    }
+    return response;
+  };
+
   const fetchChatLogs = async () => {
     try {
       console.log('Fetching chat logs...');
-      const response = await fetch('/api/chat-logs.php');
+      const response = await adminFetch('/api/chat-logs.php');
       console.log('Response status:', response.status);
       
       if (!response.ok) {
@@ -193,7 +206,7 @@ const AdminPanel = () => {
 
   const fetchQuoteRequests = async () => {
     try {
-      const response = await fetch('/api/quote-requests.php');
+      const response = await adminFetch('/api/quote-requests.php');
       const data = await response.json();
       if (data.success) {
         setQuoteRequests(data.quotes);
@@ -205,7 +218,7 @@ const AdminPanel = () => {
 
   const updateQuoteStatus = async (id, status) => {
     try {
-      const response = await fetch('/api/quote-requests.php', {
+      const response = await adminFetch('/api/quote-requests.php', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -223,7 +236,7 @@ const AdminPanel = () => {
   const deleteQuoteRequest = async (id) => {
     if (!window.confirm('Delete this quote request?')) return;
     try {
-      const response = await fetch(`/api/quote-requests.php?id=${id}`, { method: 'DELETE' });
+      const response = await adminFetch(`/api/quote-requests.php?id=${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.success) {
         setQuoteRequests(prev => prev.filter(q => q.id !== id));
@@ -236,7 +249,7 @@ const AdminPanel = () => {
 
   const fetchContactMessages = async () => {
     try {
-      const response = await fetch('/api/contact.php');
+      const response = await adminFetch('/api/contact.php');
       const data = await response.json();
       if (data.success) {
         setContactMessages(data.messages);
@@ -248,7 +261,7 @@ const AdminPanel = () => {
 
   const updateContactStatus = async (id, status) => {
     try {
-      const response = await fetch('/api/contact.php', {
+      const response = await adminFetch('/api/contact.php', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -266,7 +279,7 @@ const AdminPanel = () => {
   const deleteContactMessage = async (id) => {
     if (!window.confirm('Delete this message?')) return;
     try {
-      const response = await fetch(`/api/contact.php?id=${id}`, { method: 'DELETE' });
+      const response = await adminFetch(`/api/contact.php?id=${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.success) {
         setContactMessages(prev => prev.filter(m => m.id !== id));
@@ -298,7 +311,7 @@ const AdminPanel = () => {
   const saveColorSettings = async () => {
     setIsSavingColors(true);
     try {
-      const response = await fetch('/api/color-settings.php', {
+      const response = await adminFetch('/api/color-settings.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ colors: colorSettings })
@@ -354,6 +367,8 @@ const AdminPanel = () => {
   };
 
   const handleLogout = () => {
+    // Destroy the server-side session, then clear local state
+    fetch('/api/auth/logout.php', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     sessionStorage.removeItem('qrs-admin-session');
     sessionStorage.removeItem('qrs-admin-username');
     sessionStorage.removeItem('qrs-admin-email');
@@ -419,7 +434,7 @@ const AdminPanel = () => {
     setIsSubmittingChangePassword(true);
 
     try {
-      const response = await fetch('/api/auth/change-password.php', {
+      const response = await adminFetch('/api/auth/change-password.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -696,14 +711,14 @@ const AdminPanel = () => {
               price_currency: modal.item.price_currency || 'USD'
             };
             
-            const response = await fetch(url, {
+            const response = await adminFetch(url, {
               method: method,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
-            
+
             const result = await response.json();
-            
+
             if (response.ok) {
               showToast('Product saved successfully!');
               closeModal();
@@ -733,14 +748,14 @@ const AdminPanel = () => {
               id: modal.mode === 'edit' ? Number(modal.item.id) : undefined
             };
             
-            const response = await fetch(url, {
+            const response = await adminFetch(url, {
               method: method,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
-            
+
             const result = await response.json();
-            
+
             if (response.ok) {
               showToast('Category saved successfully!');
               closeModal();
@@ -927,7 +942,7 @@ const AdminPanel = () => {
 
   const deleteCategory = async (id) => {
     try {
-      const response = await fetch(`/api/categories.php?id=${id}`, {
+      const response = await adminFetch(`/api/categories.php?id=${id}`, {
         method: 'DELETE'
       });
       
@@ -1112,36 +1127,228 @@ const AdminPanel = () => {
         );
       case 'general':
         return (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Business Name</label>
-              <input value={siteContent.business.companyName} onChange={(e) => updateBusinessField('companyName', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+          <div className="max-w-4xl space-y-8">
+
+            {/* ── Section: Business Identity ──────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Site Identity</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">Business Information</h3>
+              <p className="mt-1 text-sm text-slate-500">Core details shown across the entire website.</p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tagline</label>
-              <input value={siteContent.business.tagline} onChange={(e) => updateBusinessField('tagline', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Business Name</label>
+                <input value={siteContent.business.companyName} onChange={(e) => updateBusinessField('companyName', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Tagline</label>
+                <input value={siteContent.business.tagline} onChange={(e) => updateBusinessField('tagline', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Phone</label>
+                <input value={siteContent.business.phone} onChange={(e) => updateBusinessField('phone', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Email</label>
+                <input type="email" value={siteContent.business.email} onChange={(e) => updateBusinessField('email', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-sm font-medium text-slate-700">Location / Address</label>
+                <input value={siteContent.business.location} onChange={(e) => updateBusinessField('location', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-sm font-medium text-slate-700">Copyright Text</label>
+                <input value={siteContent.business.copyrightText || ''} onChange={(e) => updateBusinessField('copyrightText', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" placeholder="© 2026 Your Company. All rights reserved." />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Privacy Policy URL</label>
+                <input value={siteContent.business.privacyPolicyUrl || ''} onChange={(e) => updateBusinessField('privacyPolicyUrl', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" placeholder="#" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Terms & Conditions URL</label>
+                <input value={siteContent.business.termsUrl || ''} onChange={(e) => updateBusinessField('termsUrl', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" placeholder="#" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Phone</label>
-              <input value={siteContent.business.phone} onChange={(e) => updateBusinessField('phone', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
+
+            {/* ── Section: Logos & Images ──────────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Branding</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">Logos & Images</h3>
+              <p className="mt-1 text-sm text-slate-500">Upload your business logo and the login page image.</p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <input value={siteContent.business.email} onChange={(e) => updateBusinessField('email', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Location</label>
-              <input value={siteContent.business.location} onChange={(e) => updateBusinessField('location', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5" />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Logo</label>
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3">
-                <img src={siteContent.business.logo} alt="Logo preview" className="h-16 w-16 rounded-full object-cover" />
-                <div className="flex-1">
-                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'business', 'logo')} />
+            <div className="grid gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              {/* Site Logo */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">Site Logo</label>
+                <p className="text-xs text-slate-500">Shown in the header navigation on all pages.</p>
+                <div className="flex items-center gap-4 rounded-xl border-2 border-dashed border-slate-200 p-4 hover:border-gold transition-colors">
+                  <img
+                    src={siteContent.business.logo}
+                    alt="Site logo preview"
+                    className="h-16 w-16 rounded-full object-cover border-2 border-slate-200 flex-shrink-0"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="flex-1 space-y-2">
+                    <p className="text-xs text-slate-500">PNG, JPG or SVG recommended</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'business', 'logo')} className="text-xs w-full" />
+                  </div>
+                </div>
+              </div>
+              {/* Login Page Logo */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">Login Page Logo</label>
+                <p className="text-xs text-slate-500">Displayed on the admin login screen above the form.</p>
+                <div className="flex items-center gap-4 rounded-xl border-2 border-dashed border-slate-200 p-4 hover:border-gold transition-colors">
+                  {siteContent.business.loginLogo ? (
+                    <img
+                      src={siteContent.business.loginLogo}
+                      alt="Login logo preview"
+                      className="h-16 w-16 rounded-full object-cover border-2 border-slate-200 flex-shrink-0"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-navy flex items-center justify-center flex-shrink-0">
+                      <span className="text-gold text-2xl font-bold">Q</span>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <p className="text-xs text-slate-500">PNG, JPG or SVG recommended</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'business', 'loginLogo')} className="text-xs w-full" />
+                    {siteContent.business.loginLogo && siteContent.business.loginLogo !== siteContent.business.logo && (
+                      <button
+                        type="button"
+                        onClick={() => updateBusinessField('loginLogo', siteContent.business.logo)}
+                        className="text-xs text-gold hover:underline"
+                      >
+                        Use same as site logo
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* ── Section: SEO ─────────────────────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Search Engine</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">SEO Settings</h3>
+              <p className="mt-1 text-sm text-slate-500">Controls how your site appears in Google and other search engines.</p>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Site Title (Browser Tab)</label>
+                <input value={siteContent.business.siteTitle || ''} onChange={(e) => updateBusinessField('siteTitle', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" placeholder="Quality Rental Business Services" />
+                <p className="text-xs text-slate-400">This appears in the browser tab and Google results.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Meta Description</label>
+                <textarea rows={3} value={siteContent.business.seoDescription || ''} onChange={(e) => updateBusinessField('seoDescription', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none resize-none" placeholder="Premium event rentals for weddings, corporate gatherings..." />
+                <p className="text-xs text-slate-400">Recommended: 150–160 characters. Currently: {(siteContent.business.seoDescription || '').length} chars.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Keywords</label>
+                <input value={siteContent.business.seoKeywords || ''} onChange={(e) => updateBusinessField('seoKeywords', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none" placeholder="event rentals, tents, chairs, Liberia" />
+                <p className="text-xs text-slate-400">Comma-separated keywords.</p>
+              </div>
+            </div>
+
+            {/* ── Section: Colors ───────────────────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Appearance</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">Brand Colors</h3>
+              <p className="mt-1 text-sm text-slate-500">Primary is used for buttons and highlights. Secondary is the navy background.</p>
+            </div>
+            <div className="grid gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Primary Color (Gold)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={siteContent.business.primaryColor || '#D4AF37'}
+                    onChange={(e) => updateBusinessField('primaryColor', e.target.value)}
+                    className="h-10 w-16 rounded cursor-pointer border border-slate-200"
+                  />
+                  <input
+                    type="text"
+                    value={siteContent.business.primaryColor || '#D4AF37'}
+                    onChange={(e) => updateBusinessField('primaryColor', e.target.value)}
+                    className="flex-1 rounded-lg border border-slate-200 p-2.5 text-sm font-mono focus:border-gold focus:outline-none"
+                    placeholder="#D4AF37"
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Secondary Color (Navy)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={siteContent.business.secondaryColor || '#1E3A5F'}
+                    onChange={(e) => updateBusinessField('secondaryColor', e.target.value)}
+                    className="h-10 w-16 rounded cursor-pointer border border-slate-200"
+                  />
+                  <input
+                    type="text"
+                    value={siteContent.business.secondaryColor || '#1E3A5F'}
+                    onChange={(e) => updateBusinessField('secondaryColor', e.target.value)}
+                    className="flex-1 rounded-lg border border-slate-200 p-2.5 text-sm font-mono focus:border-gold focus:outline-none"
+                    placeholder="#1E3A5F"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── Section: Typography ───────────────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Typography</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">Fonts</h3>
+              <p className="mt-1 text-sm text-slate-500">Font names from Google Fonts. Changes apply after saving and reloading.</p>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Heading Font</label>
+                <select value={siteContent.business.fontHeading || 'Playfair Display'} onChange={(e) => updateBusinessField('fontHeading', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none">
+                  <option value="Playfair Display">Playfair Display (Default)</option>
+                  <option value="Merriweather">Merriweather</option>
+                  <option value="Lora">Lora</option>
+                  <option value="Cormorant Garamond">Cormorant Garamond</option>
+                  <option value="Libre Baskerville">Libre Baskerville</option>
+                  <option value="Montserrat">Montserrat</option>
+                  <option value="Raleway">Raleway</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Body Font</label>
+                <select value={siteContent.business.fontBody || 'Inter'} onChange={(e) => updateBusinessField('fontBody', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-gold focus:outline-none">
+                  <option value="Inter">Inter (Default)</option>
+                  <option value="Open Sans">Open Sans</option>
+                  <option value="Lato">Lato</option>
+                  <option value="Roboto">Roboto</option>
+                  <option value="Nunito">Nunito</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Source Sans 3">Source Sans 3</option>
+                </select>
+              </div>
+            </div>
+
+            {/* ── Section: Google Maps ──────────────────────────────── */}
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Location</p>
+              <h3 className="mt-1 text-xl font-bold text-navy">Google Maps Embed</h3>
+              <p className="mt-1 text-sm text-slate-500">Paste the embed URL from Google Maps to show your location on the Contact page.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Maps Embed URL</label>
+                <textarea rows={3} value={siteContent.business.googleMapsEmbed || ''} onChange={(e) => updateBusinessField('googleMapsEmbed', e.target.value)} className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-mono focus:border-gold focus:outline-none resize-none" placeholder="https://www.google.com/maps/embed?pb=..." />
+                <p className="text-xs text-slate-400">In Google Maps → Share → Embed a map → copy the src URL only (not the full iframe HTML).</p>
+              </div>
+              {siteContent.business.googleMapsEmbed && (
+                <div className="rounded-lg overflow-hidden border border-slate-200">
+                  <iframe src={siteContent.business.googleMapsEmbed} width="100%" height="200" style={{ border: 0 }} allowFullScreen loading="lazy" title="Location preview" />
+                </div>
+              )}
+            </div>
+
           </div>
         );
       case 'communications': {
@@ -2063,7 +2270,7 @@ const AdminPanel = () => {
   return (
     <>
       {modal.open && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm md:items-center md:p-4">
+        <div className="fixed inset-0 z-[210] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm md:items-center md:p-4">
           <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl md:max-h-[85vh] md:w-full md:max-w-2xl md:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">
@@ -2246,7 +2453,7 @@ const AdminPanel = () => {
       )}
 
       {showChangePassword && (
-        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[215] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
@@ -2372,7 +2579,7 @@ const AdminPanel = () => {
 
       {/* Toast Notification */}
       {toast.show && (
-        <div className={`fixed top-24 right-4 md:top-8 md:right-8 px-6 py-4 rounded-lg shadow-lg z-[100] flex items-center space-x-3 animate-slide-in ${
+        <div className={`fixed top-24 right-4 md:top-8 md:right-8 px-6 py-4 rounded-lg shadow-lg z-[220] flex items-center space-x-3 animate-slide-in ${
           toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {toast.type === 'success' ? (

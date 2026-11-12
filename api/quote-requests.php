@@ -6,6 +6,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once './config/database.php';
+include_once './config/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -15,8 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// GET - fetch all quote requests with their items
+// GET - fetch all quote requests with their items (admin only — contains customer PII)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    requireAdmin();
     try {
         $query = "SELECT qr.*, 
                     GROUP_CONCAT(CONCAT(p.name, ' x', qi.quantity) SEPARATOR ', ') AS items_summary
@@ -31,14 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         http_response_code(200);
         echo json_encode(['success' => true, 'quotes' => $quotes]);
     } catch (Exception $e) {
+        error_log("Quote requests GET error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
     exit();
 }
 
-// PUT - update quote status
+// PUT - update quote status (admin only)
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    requireAdmin();
     $data = json_decode(file_get_contents('php://input'));
     if (empty($data->id) || empty($data->status)) {
         http_response_code(400);
@@ -53,14 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         http_response_code(200);
         echo json_encode(['success' => true, 'message' => 'Status updated.']);
     } catch (Exception $e) {
+        error_log("Quote status update error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
     exit();
 }
 
-// DELETE - delete a quote request
+// DELETE - delete a quote request (admin only)
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    requireAdmin();
     $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
     if (!$id) {
         http_response_code(400);
@@ -74,24 +80,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         http_response_code(200);
         echo json_encode(['success' => true, 'message' => 'Quote request deleted.']);
     } catch (Exception $e) {
+        error_log("Quote delete error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Get posted data
-    $raw_input = file_get_contents("php://input");
-    error_log("Quote Request Raw Input: " . $raw_input);
-    $data = json_decode($raw_input);
-    error_log("Quote Request Decoded Data: " . print_r($data, true));
+    // Spam protection: max 30 quote submissions per 10 minutes per IP
+    // (raised for shared/carrier-grade NAT; honeypot + validation do the real filtering)
+    if (!rateLimitAllow('quote', 30, 600)) {
+        http_response_code(429);
+        echo json_encode(array("message" => "Too many requests. Please try again later."));
+        exit();
+    }
+
+    // Get posted data — do NOT log raw input (contains customer PII)
+    $data = json_decode(file_get_contents("php://input"));
+
+    // Honeypot: bots fill the hidden 'hp_check' field — pretend success, store nothing
+    if (isset($data->hp_check) && trim((string)$data->hp_check) !== '') {
+        honeypotDrop('quote');
+        http_response_code(201);
+        echo json_encode(array("message" => "Quote request submitted successfully."));
+        exit();
+    }
     
     // Validate required fields
     if (
         !empty($data->first_name) &&
         !empty($data->last_name) &&
         !empty($data->email) &&
+        filter_var($data->email, FILTER_VALIDATE_EMAIL) &&
         !empty($data->phone) &&
         !empty($data->event_date) &&
         !empty($data->items) &&
@@ -181,8 +202,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Exception $e) {
             $db->rollBack();
+            error_log("Quote request error: " . $e->getMessage());
             http_response_code(500);
-            echo json_encode(array("message" => "Server error: " . $e->getMessage()));
+            echo json_encode(array("message" => "Server error. Please try again later."));
         }
     } else {
         http_response_code(400);
@@ -197,7 +219,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate, $durationDays, $deliveryType, $deliveryAddress, $specialNotes, $items, $estimatedTotal) {
     global $db;
     $to = "paye.susanna@yahoo.com";
-    $subject = "New Quote Request - $firstName $lastName";
+    // Strip CRLF to prevent email header injection via customer name
+    $safeName = str_replace(["\r", "\n"], ' ', "$firstName $lastName");
+    $subject = "New Quote Request - $safeName";
     
     $message = "
     <html>
@@ -245,7 +269,10 @@ function sendEmailNotification($firstName, $lastName, $email, $phone, $eventDate
     $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
     $headers .= "From: no-reply@qualityrentalservices.com" . "\r\n";
     
-    mail($to, $subject, $message, $headers);
+    // Suppress warnings — mail() failures must not leak paths or break JSON output
+    if (!@mail($to, $subject, $message, $headers)) {
+        error_log("Quote notification email failed to send.");
+    }
 }
 
 // WhatsApp notification function
@@ -290,11 +317,7 @@ function sendWhatsAppNotification($firstName, $lastName, $email, $phone, $eventD
     
     $encodedMessage = urlencode($message);
     $whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage";
-    
-    // Log the WhatsApp URL for debugging
-    error_log("WhatsApp URL: " . $whatsappUrl);
-    
-    // Return the URL for the frontend to open
+
     return $whatsappUrl;
 }
 ?>

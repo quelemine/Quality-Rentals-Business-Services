@@ -12,6 +12,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once './config/database.php';
+include_once './config/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -86,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode($products);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireAdmin();
     // Create new product
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -116,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(array("message" => "Unable to create product."));
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    requireAdmin();
     // Update existing product
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -162,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(array("message" => "Unable to update product."));
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    requireAdmin();
     // Delete product
     if (!isset($_GET['id'])) {
         http_response_code(400);

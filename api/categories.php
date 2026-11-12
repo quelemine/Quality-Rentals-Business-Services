@@ -12,6 +12,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once './config/database.php';
+include_once './config/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -56,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode($categories);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireAdmin();
     // Create new category
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -78,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(array("message" => "Unable to create category."));
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    requireAdmin();
     // Update existing category
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -110,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(array("message" => "Unable to update category."));
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    requireAdmin();
     // Delete category
     if (!isset($_GET['id'])) {
         http_response_code(400);

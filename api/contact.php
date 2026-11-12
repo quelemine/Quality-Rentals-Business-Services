@@ -5,6 +5,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 include_once './config/database.php';
+include_once './config/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -14,8 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// GET - fetch all contact messages for admin
+// GET - fetch all contact messages for admin (contains customer PII)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    requireAdmin();
     try {
         $query = "SELECT * FROM contact_messages ORDER BY created_at DESC";
         $stmt = $db->prepare($query);
@@ -29,18 +31,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'total' => count($messages)
         ]);
     } catch (Exception $e) {
+        error_log("Contact messages GET error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
 }
 
 // POST - submit a new contact message
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Spam protection: max 30 messages per 10 minutes per IP
+    // (raised for shared/carrier-grade NAT; honeypot + validation do the real filtering)
+    if (!rateLimitAllow('contact', 30, 600)) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => 'Too many requests. Please try again later.']);
+        exit();
+    }
+
     $data = json_decode(file_get_contents('php://input'));
+
+    // Honeypot: bots fill the hidden 'hp_check' field — pretend success, store nothing
+    if (isset($data->hp_check) && trim((string)$data->hp_check) !== '') {
+        honeypotDrop('contact');
+        http_response_code(201);
+        echo json_encode(['success' => true, 'message' => 'Message sent successfully.']);
+        exit();
+    }
 
     if (empty($data->name) || empty($data->email) || empty($data->subject) || empty($data->message)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Name, email, subject, and message are required.']);
+        exit();
+    }
+
+    if (!filter_var($data->email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'A valid email address is required.']);
         exit();
     }
 
@@ -69,13 +94,15 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Unable to save message.']);
         }
     } catch (Exception $e) {
+        error_log("Contact message POST error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error. Please try again later.']);
     }
 }
 
-// PUT - update message status (Unread → Read, etc.)
+// PUT - update message status (Unread → Read, etc.) — admin only
 elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    requireAdmin();
     $data = json_decode(file_get_contents('php://input'));
 
     if (empty($data->id) || empty($data->status)) {
@@ -94,13 +121,15 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         http_response_code(200);
         echo json_encode(['success' => true, 'message' => 'Status updated.']);
     } catch (Exception $e) {
+        error_log("Contact status update error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
 }
 
-// DELETE - delete a message
+// DELETE - delete a message — admin only
 elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    requireAdmin();
     $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
     if (!$id) {
@@ -118,8 +147,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         http_response_code(200);
         echo json_encode(['success' => true, 'message' => 'Message deleted.']);
     } catch (Exception $e) {
+        error_log("Contact delete error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Server error.']);
     }
 }
 

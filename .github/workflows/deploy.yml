@@ -1,0 +1,256 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA or tag to deploy (use for rollback). Empty = latest main.'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run — show what would change without uploading. ALWAYS run this first.'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+
+# Never run two deployments at once; queue instead of cancelling
+concurrency:
+  group: deploy-suerental-production
+  cancel-in-progress: false
+
+env:
+  STAGING_DIR: deploy-staging
+
+jobs:
+  deploy:
+    name: Build, check and deploy
+    runs-on: ubuntu-latest
+    # Requires manual approval if you add required reviewers to this environment
+    # (Settings → Environments → production). See DEPLOYMENT.md.
+    environment: production
+
+    steps:
+      - name: Checkout (full history for secret scan)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.2'
+
+      - name: Lint all PHP files in /api
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            out=$(php -l "$f" 2>&1) || { echo "$out"; fail=1; }
+          done < <(find api -name '*.php' -type f)
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::PHP lint failed"
+            exit 1
+          fi
+          echo "All PHP files lint clean."
+
+      - name: Secret & sensitive-file scan
+        run: |
+          set -e
+          # 1. Recover the previously-leaked admin password FROM GIT HISTORY at
+          #    runtime — the literal is never stored in this repo or workflow.
+          #    (If history was purged with filter-repo, this finds nothing and
+          #    the check is skipped — which is fine, the secret is gone.)
+          OLD_SECRET=""
+          for c in $(git log --all --format=%H -- DEPLOYMENT.md | head -50); do
+            cand=$(git show "$c:DEPLOYMENT.md" 2>/dev/null \
+              | grep -E '^\s*[-*]?\s*Password:' | head -1 \
+              | sed -E 's/.*Password:[[:space:]]*//; s/[` ).,;"'"'"'].*$//')
+            if [ -n "$cand" ] && [ ${#cand} -ge 6 ]; then
+              OLD_SECRET="$cand"
+              break
+            fi
+          done
+          if [ -n "$OLD_SECRET" ]; then
+            if git grep -F -l "$OLD_SECRET" -- . ; then
+              echo "::error::Leaked secret found in tracked files"
+              exit 1
+            fi
+            echo "Historical secret check: clean."
+          else
+            echo "::notice::No historical secret found to scan for (history may already be purged)."
+          fi
+          # 2. No real .env files (templates like .env.example are allowed)
+          if git ls-files | grep -E '(^|/)\.env' | grep -v '\.example$'; then
+            echo "::error::A real .env file is tracked"
+            exit 1
+          fi
+          # 3. local.php must never be committed
+          if git ls-files | grep -E '(^|/)local\.php$'; then
+            echo "::error::api/config/local.php is tracked — remove it from git"
+            exit 1
+          fi
+          # 4. No .sql dumps containing customer/admin data
+          if git grep -l -E 'INSERT INTO `?(quote_requests|quote_items|contact_messages|chat_logs|admin|password_reset_tokens|customers|users)`?' -- '*.sql'; then
+            echo "::error::A .sql file contains customer/admin data"
+            exit 1
+          fi
+          echo "Secret scan passed."
+
+      - name: Stage deployment package
+        run: |
+          set -e
+          rm -rf "$STAGING_DIR"
+          mkdir -p "$STAGING_DIR"
+          # Built frontend (includes .htaccess with SPA fallback + header rules)
+          cp -r frontend/dist/. "$STAGING_DIR/"
+          # Backend API
+          mkdir -p "$STAGING_DIR/api"
+          cp -r api/. "$STAGING_DIR/api/"
+
+          # --- Exclusions (belt & suspenders; most are gitignored anyway) ---
+          rm -f "$STAGING_DIR/api/config/local.php" \
+                "$STAGING_DIR/api/auth/session-info.php" \
+                "$STAGING_DIR"/api/test-*.php \
+                "$STAGING_DIR"/api/fix-*.php
+          find "$STAGING_DIR" -type f \( -name '*.sql' -o -name '*.zip' -o -name '.env*' \) -delete
+          find "$STAGING_DIR" -type d -name 'node_modules' -exec rm -rf {} + 2>/dev/null || true
+
+      - name: Verify staging contents
+        run: |
+          set -e
+          count=$(find "$STAGING_DIR" -type f | wc -l)
+          echo "Staged file count: $count"
+          find "$STAGING_DIR" -type f | sed "s|^$STAGING_DIR/||" | sort
+
+          # Hard-fail if any excluded file slipped in
+          for bad in api/config/local.php api/auth/session-info.php; do
+            if [ -e "$STAGING_DIR/$bad" ]; then
+              echo "::error::Excluded file present in staging: $bad"
+              exit 1
+            fi
+          done
+          if find "$STAGING_DIR" -type f \( -name '*.sql' -o -name '*.zip' -o -name '.env*' -o -name 'test-*.php' -o -name 'fix-*.php' \) | grep -q .; then
+            echo "::error::Excluded file pattern found in staging"
+            find "$STAGING_DIR" -type f \( -name '*.sql' -o -name '*.zip' -o -name '.env*' -o -name 'test-*.php' -o -name 'fix-*.php' \)
+            exit 1
+          fi
+          if [ ! -f "$STAGING_DIR/.htaccess" ]; then
+            echo "::error::.htaccess missing from staging"
+            exit 1
+          fi
+          echo "Staging verified."
+
+      - name: Compute dry-run flag
+        id: flags
+        run: |
+          # SAFETY: push events ALWAYS dry-run. A real upload is only possible
+          # via workflow_dispatch with dry_run explicitly unchecked.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DRY="${{ inputs.dry_run }}"
+          else
+            DRY="true"
+            echo "::notice::Push-triggered run — forced to DRY RUN. No files will be uploaded."
+          fi
+          echo "dry_run=$DRY" >> "$GITHUB_OUTPUT"
+          echo "Dry run: $DRY"
+
+      - name: Deploy via FTPS (explicit TLS — the ONLY protocol used)
+        id: deploy
+        # FTPS encrypts credentials + data. Plain FTP is never used: if FTPS
+        # fails the job fails here and the password is never sent unencrypted.
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: ${{ secrets.FTP_PORT }}
+          # FTP login root may already be the domain folder. If the dry run
+          # fails with "cannot change directory", set repo variable
+          # FTP_SERVER_DIR to the path relative to the FTP root, e.g.
+          # domains/suerental.com/public_html
+          server-dir: ${{ vars.FTP_SERVER_DIR || 'public_html' }}
+          local-dir: ${{ env.STAGING_DIR }}/
+          dry-run: ${{ steps.flags.outputs.dry_run }}
+          # NEVER wipe the server — uploaded-only sync. local.php and admin-
+          # uploaded images under upload/ are untouched because they are not
+          # in the repo and nothing is deleted.
+          dangerous-clean-slate: false
+          exclude: |
+            **/local.php
+            **/session-info.php
+            **/test-*.php
+            **/fix-*.php
+            **/*.sql
+            **/*.zip
+            **/.env*
+            **/node_modules/**
+
+      - name: Fail clearly if FTPS failed
+        if: steps.deploy.outcome != 'success'
+        run: |
+          echo "::error::FTPS deployment failed — the FTP password was NOT sent (plain FTP fallback removed for security)."
+          echo "Check: FTP_SERVER/PORT/USERNAME secrets, FTPS support on port 21, and server-dir (set FTP_SERVER_DIR variable if needed)."
+          exit 1
+
+      - name: Smoke tests against production
+        if: >-
+          steps.flags.outputs.dry_run != 'true' &&
+          steps.deploy.outcome == 'success'
+        run: |
+          set -e
+          base="https://suerental.com"
+          fail=0
+
+          expect() { # url expected_codes(comma) label
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$1")
+            ok=0
+            IFS=',' read -ra want <<< "$2"
+            for w in "${want[@]}"; do [ "$code" = "$w" ] && ok=1; done
+            if [ $ok -eq 1 ]; then echo "PASS  $code  $3"; else echo "FAIL  $code (want $2)  $3"; fail=1; fi
+          }
+
+          # Admin-only endpoints must reject anonymous access
+          expect "$base/api/quote-requests.php" 401 "GET quote-requests (unauth)"
+          expect "$base/api/contact.php"       401 "GET contact (unauth)"
+          expect "$base/api/chat-logs.php"     401 "GET chat-logs (unauth)"
+
+          # Sensitive files must be blocked
+          expect "$base/api/config/database.php" 403,404 "database.php config"
+          expect "$base/api/config/local.php"    403,404 "local.php"
+          expect "$base/database/schema.sql"     403,404 "database/schema.sql"
+          expect "$base/.ftp-deploy-sync-state.json" 403,404 "FTP sync-state file"
+
+          # SPA routes must serve the app
+          expect "$base/"            200 "home"
+          expect "$base/rentals"     200 "rentals route"
+          expect "$base/admin-login" 200 "admin-login route"
+          expect "$base/contact"     200 "contact route"
+
+          if [ $fail -ne 0 ]; then
+            echo "::error::Smoke tests failed — the new version is ALREADY LIVE. Roll back immediately (see DEPLOYMENT.md → Rollback) or fix forward."
+            exit 1
+          fi
+          echo "All smoke tests passed."

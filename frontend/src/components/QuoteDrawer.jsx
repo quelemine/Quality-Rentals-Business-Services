@@ -459,6 +459,18 @@ const QuoteDrawer = () => {
                 />
               </div>
 
+              {/* Honeypot field — hidden from real users, bots fill it */}
+              <input
+                type="text"
+                name="hp_check"
+                value={formData.hp_check || ''}
+                onChange={(e) => updateFormData('hp_check', e.target.value)}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+              />
+
               <div className="flex space-x-4">
                 <button
                   onClick={prevStep}

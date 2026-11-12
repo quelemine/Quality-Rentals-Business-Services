@@ -179,7 +179,24 @@ const AIChat = () => {
 
   const generateResponse = async (userMessage) => {
     const lowerMessage = userMessage.toLowerCase();
-    
+
+    // Guardrail: only answer questions about the business, rentals, and this site.
+    // Never discuss credentials, admin access, private/personal information,
+    // or anything that could help someone compromise the system.
+    const restrictedTopics = [
+      'password', 'passwd', 'credential', 'login', 'log in', 'sign in', 'username',
+      'admin', 'administrator', 'hack', 'hacking', 'hacker', 'exploit', 'bypass',
+      'token', 'secret', 'api key', 'apikey', 'database', 'sql injection',
+      'system prompt', 'ignore previous', 'ignore all', 'jailbreak',
+      'personal', 'private', 'salary', 'bank account', 'credit card', 'ssn',
+      'social security', 'date of birth', 'home address',
+    ];
+    const isRestricted = restrictedTopics.some((topic) => lowerMessage.includes(topic));
+
+    if (isRestricted) {
+      return "I'm the Quality Rentals assistant — I can only help with our rental services, products, pricing, and how to book or contact us. I can't discuss account credentials, admin access, or private/personal information. Is there anything I can help you with regarding our event rentals?";
+    }
+
     // Check if user is searching for products
     if (lowerMessage.includes('search') || lowerMessage.includes('find') || lowerMessage.includes('look for') || lowerMessage.includes('available')) {
       // Extract search terms

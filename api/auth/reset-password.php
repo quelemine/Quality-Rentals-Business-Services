@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!empty($data->token) && !empty($data->password) && !empty($data->confirmPassword)) {
         try {
-            $token = htmlspecialchars(strip_tags($data->token));
+            $token = trim((string)$data->token);
             $password = $data->password;
             $confirmPassword = $data->confirmPassword;
             
@@ -42,9 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Check if token exists and is valid
+            // Tokens are stored hashed — hash the submitted token before lookup
+            $tokenHash = hash('sha256', $token);
             $query = "SELECT * FROM password_reset_tokens WHERE token = :token AND used = FALSE AND expires_at > NOW()";
             $stmt = $db->prepare($query);
-            $stmt->bindParam(':token', $token);
+            $stmt->bindParam(':token', $tokenHash);
             $stmt->execute();
             $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -66,10 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateResult = $updateStmt->execute();
             
             if ($updateResult) {
-                // Mark token as used
-                $markUsedQuery = "UPDATE password_reset_tokens SET used = TRUE WHERE token = :token";
+                // Mark this token as used AND invalidate any other outstanding
+                // tokens for the same email (a password change kills all sessions)
+                $markUsedQuery = "UPDATE password_reset_tokens SET used = TRUE WHERE email = :email";
                 $markUsedStmt = $db->prepare($markUsedQuery);
-                $markUsedStmt->bindParam(':token', $token);
+                $markUsedStmt->bindParam(':email', $tokenData['email']);
                 $markUsedStmt->execute();
                 
                 http_response_code(200);
@@ -83,10 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
         } catch (Exception $e) {
+            error_log("Reset password error: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(array(
                 "success" => false,
-                "message" => "Server error: " . $e->getMessage()
+                "message" => "Server error. Please try again later."
             ));
         }
     } else {

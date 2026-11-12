@@ -1,5 +1,6 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { QuoteProvider } from './context/QuoteContext';
 import { SiteContentProvider } from './context/SiteContentContext';
 import Header from './components/Header';
@@ -39,7 +40,6 @@ function AppLayout() {
       <AIChat />
       <MobileNav />
       <Toast />
-      {/* AdminPanel overlay — only activates when ?admin=1 is in the URL after login */}
       <AdminPanel />
     </div>
   );
@@ -47,20 +47,20 @@ function AppLayout() {
 
 function App() {
   return (
-    <SiteContentProvider>
-      <QuoteProvider>
-        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            {/* Clean standalone login page — no overlapping widgets */}
-            <Route path="/admin-login" element={<AdminLoginPage />} />
-            {/* Redirect old /admin URL to the new login page */}
-            <Route path="/admin" element={<Navigate to="/admin-login" replace />} />
-            <Route path="/*" element={<AppLayout />} />
-          </Routes>
-        </HashRouter>
-      </QuoteProvider>
-    </SiteContentProvider>
+    <HelmetProvider>
+      <SiteContentProvider>
+        <QuoteProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Routes>
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/admin-login" element={<AdminLoginPage />} />
+              <Route path="/admin" element={<Navigate to="/admin-login" replace />} />
+              <Route path="/*" element={<AppLayout />} />
+            </Routes>
+          </BrowserRouter>
+        </QuoteProvider>
+      </SiteContentProvider>
+    </HelmetProvider>
   );
 }
 

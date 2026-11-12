@@ -18,6 +18,7 @@ export const QuoteProvider = ({ children }) => {
     deliveryAddress: '',
     specialNotes: '',
     contactMethod: 'email',
+    hp_check: '', // honeypot — must stay empty for real users
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -88,6 +89,7 @@ export const QuoteProvider = ({ children }) => {
       deliveryAddress: '',
       specialNotes: '',
       contactMethod: 'email',
+      hp_check: '',
     });
     setIsDrawerOpen(false);
   }, []);
@@ -131,6 +133,7 @@ export const QuoteProvider = ({ children }) => {
         delivery_address: formData.deliveryType === 'Delivery Required' ? formData.deliveryAddress : null,
         special_notes: formData.specialNotes,
         contact_method: formData.contactMethod,
+        hp_check: formData.hp_check || '',
         estimated_total: hasContactForPrice ? null : estimatedTotalUSD,
         items: quoteItems.map((item) => ({
           product_id: item.product_id,
